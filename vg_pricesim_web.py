@@ -108,10 +108,10 @@ if st.button("Generate Chart"):
         median_min = monthly_cum_min.loc[month].median()
         percentile_25_min = monthly_cum_min.loc[month].quantile(0.25)
         monthly_percentile_extremes[month] = {
-            "50% Price Up": median_max,
-            "25% Price Up": percentile_75_max,
-            "50% Price Down": median_min,
-            "25% Price Down": percentile_25_min
+            "50% Prob. Price Up": median_max,
+            "25% Prob. Price Up": percentile_75_max,
+            "50% Prob. Price Down": median_min,
+            "25% Prob. Price Down": percentile_25_min
         }
     percentile_extremes_df = pd.DataFrame(monthly_percentile_extremes).T
 
