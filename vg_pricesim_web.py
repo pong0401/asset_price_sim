@@ -54,6 +54,11 @@ def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, nu
 
 # Streamlit App
 st.title("Variance Gamma Price Simulation and Percentiles")
+st.markdown("""
+    ---
+    ### Contact Me
+    [Facebook](https://www.facebook.com/profile.php?id=100086804432808).
+    """)
 
 # User Inputs
 asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
