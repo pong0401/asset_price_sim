@@ -59,7 +59,7 @@ st.title("Variance Gamma Price Simulation and Percentiles")
 asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
 num_scenarios = st.slider("Number of Scenarios:", 100, 5000, 1000)
 steps = st.slider("Simulation Days:", 30, 365, 365)
-print("asset",asset)
+#print("asset",asset)
 
 # Button to Generate Chart
 if st.button("Generate Chart"):
@@ -136,7 +136,7 @@ if st.button("Generate Chart"):
 
     # Add percentile lines
     for col, color, dash in zip(
-        ["50% Price Up", "25% Price Up", "50% Price Down", "25% Price Down"],
+        ["50% Prob. Price Up", "25% Prob. Price Up", "50% Prob. Price Down", "25% Prob. Price Down"],
         ['green', 'lightgreen', 'red', 'lightcoral'],
         [None, 'dash', None, 'dash']
     ):
