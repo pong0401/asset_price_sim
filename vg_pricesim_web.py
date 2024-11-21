@@ -29,7 +29,10 @@ crypto_symbols = [
     'AAVE/USDT', 'MANA/USDT', 'THETA/USDT', 'XTZ/USDT', 'EGLD/USDT',
     'AXS/USDT', 'CHZ/USDT', 'RPL/USDT', 'GRT/USDT', 'CAKE/USDT',
     'KAVA/USDT', 'ZIL/USDT', 'XEC/USDT', 'BAT/USDT', 'CRV/USDT',
-    'DYDX/USDT', 'GALA/USDT', 'STX/USDT', 'IMX/USDT'
+    'DYDX/USDT', 'GALA/USDT', 'STX/USDT', 'IMX/USDT', 'BAL/USDT',
+    'BONK/USDT',  # Popular Solana-based meme coin
+    'PEPE/USDT',  # Inspired by "Pepe the Frog" meme
+    'FLOKI/USDT',  # Inspired by Elon Musk's Shiba Inu
 ]
 
 # Variance Gamma Functions
