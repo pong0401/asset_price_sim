@@ -239,28 +239,36 @@ if os.path.exists(param_result_file):
         # Convert to DataFrames
         accuracy_df = pd.DataFrame(accuracy_results)
         return_df = pd.DataFrame(return_results)
-        #print(accuracy_df.head())
-        # Ensure 'Last_Trigger_Date' is converted to datetime
-        # accuracy_df['Last_Trigger_Date'] = pd.to_datetime(accuracy_df['Last_Trigger_Date'], errors='coerce')
-        # return_df['Last_Trigger_Date'] = pd.to_datetime(return_df['Last_Trigger_Date'], errors='coerce')
-        # #print(accuracy_df.info())
-        # # Set the filter date
-        
-        # filter_date = datetime.now(timezone.utc) - pd.Timedelta(days=num_last_trig_day)
-        # filter_date = filter_date.replace(tzinfo=None)
-        # #print("filter_date",filter_date)
-        # # Apply the filter
-        # accuracy_df = accuracy_df[accuracy_df['Last_Trigger_Date'] >= filter_date]
-        # return_df = return_df[return_df['Last_Trigger_Date'] >= filter_date]
 
         accuracy_df=accuracy_df[accuracy_df['Total_Return']>0].set_index('Symbol').round(2)
         return_df=return_df[return_df['Total_Return']>0].set_index('Symbol').round(2)
+
+        current_date = datetime.now().date()
+
+        # For Return DataFrame
+        return_df['Sell'] = (pd.to_datetime(return_df['Last_Trigger_Date']) + pd.to_timedelta(return_df['Holding_Days'], unit='d')).dt.date < current_date
+
+        # For Accuracy DataFrame
+        accuracy_df['Sell'] = (pd.to_datetime(accuracy_df['Last_Trigger_Date']) + pd.to_timedelta(accuracy_df['Holding_Days'], unit='d')).dt.date < current_date
+        # Reorder columns
+        desired_columns = [
+            'Last_Trigger_Date', 'Holding_Days', 'Sell', 'Total_Return', 
+            'Accuracy', 'High_in_x_days', 'Volume_Increase_Pct', 
+            'Num_Signals', 'Sharpe_Ratio'
+        ]
+
+        accuracy_df = accuracy_df[desired_columns]
+        return_df = return_df[desired_columns]
         # Display the tables
         st.subheader(f"Focus on Return")
         st.dataframe(return_df.sort_values('Last_Trigger_Date',ascending=False).head(10))
+        st.subheader(f"Sell of Focus on Return")
+        st.dataframe(return_df[return_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
 
         st.subheader(f"Focus on Accuracy")
         st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(10))
+        st.subheader(f"Sell of Focus on Accuracy")
+        st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
 else:
     st.warning("Strategy results file not found.")
 
