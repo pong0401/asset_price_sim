@@ -17,7 +17,7 @@ os.makedirs(data_dir, exist_ok=True)
 
 # Number of days for filtering last trigger
 num_last_trig_day = 3
-
+exchange = ccxt.binance()
 # List of crypto symbols
 crypto_symbols = [
     'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'XRP/USDT', 'DOGE/USDT',
@@ -81,18 +81,23 @@ def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, nu
     pct_changes_df = pd.DataFrame(pct_changes, index=dates, columns=[f'Scenario_{i+1}' for i in range(num_scenarios)])
     return pct_changes_df
 # Function to fetch data and save to a file
-def fetch_and_save_data(symbol, timeframe='1d', limit=100, delay=0.2):
-    exchange = ccxt.binance()
-    all_data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+def fetch_and_save_data(symbol, timeframe='1d', since=None, limit=365):
+    all_data = []
+    while True:
+        data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit)
+        if not data:
+            break
+        all_data.extend(data)
+        since = data[-1][0] + 1
+        time.sleep(exchange.rateLimit / 1000)  # Respect rate limit
+
+    # Save to file
     df = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
 
-    # Save to file
     filename = f"{data_dir}/{symbol.replace('/', '_')}.csv"
     df.to_csv(filename, index=False)
-    
-    # Add delay to respect rate limits
-    time.sleep(delay)
+
     return df
 
 # Check if file is current
@@ -172,7 +177,7 @@ def find_last_trigger(data, x_days, volume_increase_pct, holding_period):
 # Streamlit App Layout
 st.title("Crypto Strategy Performance and Price Simulation")
 st.text("Analyze crypto strategies and simulate future price scenarios.")
-st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูลตังแต่ 2023")
+st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา")
 st.text("ช่วง Bull run ตอนที่ราคา BTC ATH ,เหรียญอื่นจะขึ้นตาม ช่วงที่หมด Bull run ไม่ควรใช้ strategy นี้ และใช้เพื่อการศึกษาเท่านั้น")
 # Section 1: Strategy Analysis (Accuracy and Return Tables)
 st.subheader("Crypto Strategy Backtesting")
@@ -186,44 +191,48 @@ if os.path.exists(param_result_file):
         results_df = pd.read_csv(param_result_file)
         # Process data
         for symbol, df in crypto_data.items():
-            # Best accuracy
+            # Best accuracy parameters
             best_accuracy_row = results_df[results_df['Symbol'] == symbol].sort_values(by='Accuracy', ascending=False).iloc[0]
-            last_trigger_date, num_signals_acc, total_return_acc, accuracy_acc, sharpe_acc = find_last_trigger(
-                df.copy(),
-                best_accuracy_row['High_in_x_days'],
-                best_accuracy_row['Volume_Increase_Pct'],
-                best_accuracy_row['Holding_Period']
+            best_accuracy_params = {
+                'x_days': best_accuracy_row['High_in_x_days'],
+                'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'],
+                'holding_period': best_accuracy_row['Holding_Period']
+            }
+            best_accuracy_date, num_signals_acc, total_return_acc, accuracy_acc, sharpe_acc = find_last_trigger(
+                df.copy(), best_accuracy_params['x_days'], best_accuracy_params['volume_increase_pct'], best_accuracy_params['holding_period']
             )
             accuracy_results.append({
                 'Symbol': symbol,
-                'Last_Trigger_Date': last_trigger_date,
-                'Holding_Days': best_accuracy_row['Holding_Period'],
+                'Last_Trigger_Date': best_accuracy_date,
+                'Holding_Days': best_accuracy_params['holding_period'],
                 'Total_Return': total_return_acc,
                 'Accuracy': accuracy_acc,
-                'High_in_x_days': best_accuracy_row['High_in_x_days'],
-                'Volume_Increase_Pct': best_accuracy_row['Volume_Increase_Pct'],
+                'High_in_x_days': best_accuracy_params['x_days'],
+                'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
                 'Num_Signals': num_signals_acc,
                 'Sharpe_Ratio': sharpe_acc
             })
 
-            # Best return
+            # Best return parameters
             best_return_row = results_df[results_df['Symbol'] == symbol].sort_values(by='Total_Return', ascending=False).iloc[0]
-            last_trigger_date, num_signals_ret, total_return_ret, accuracy_ret, sharpe_ret = find_last_trigger(
-                df.copy(),
-                best_return_row['High_in_x_days'],
-                best_return_row['Volume_Increase_Pct'],
-                best_return_row['Holding_Period']
+            best_return_params = {
+                'x_days': best_return_row['High_in_x_days'],
+                'volume_increase_pct': best_return_row['Volume_Increase_Pct'],
+                'holding_period': best_return_row['Holding_Period']
+            }
+            best_return_date, num_signals_ret, total_return_ret, accuracy_ret, sharpe_ret = find_last_trigger(
+                df.copy(), best_return_params['x_days'], best_return_params['volume_increase_pct'], best_return_params['holding_period']
             )
             return_results.append({
                 'Symbol': symbol,
-                'Last_Trigger_Date': last_trigger_date,
-                'Holding_Days': best_accuracy_row['Holding_Period'],
-                'Total_Return': total_return_acc,
-                'Accuracy': accuracy_acc,
-                'High_in_x_days': best_accuracy_row['High_in_x_days'],
-                'Volume_Increase_Pct': best_accuracy_row['Volume_Increase_Pct'],
-                'Num_Signals': num_signals_acc,
-                'Sharpe_Ratio': sharpe_acc
+                'Last_Trigger_Date': best_return_date,
+                'Holding_Days': best_return_params['holding_period'],
+                'Total_Return': total_return_ret,
+                'Accuracy': accuracy_ret,
+                'High_in_x_days': best_return_params['x_days'],
+                'Volume_Increase_Pct': best_return_params['volume_increase_pct'],
+                'Num_Signals': num_signals_ret,
+                'Sharpe_Ratio': sharpe_ret
             })
 
         # Convert to DataFrames
@@ -231,26 +240,26 @@ if os.path.exists(param_result_file):
         return_df = pd.DataFrame(return_results)
         #print(accuracy_df.head())
         # Ensure 'Last_Trigger_Date' is converted to datetime
-        accuracy_df['Last_Trigger_Date'] = pd.to_datetime(accuracy_df['Last_Trigger_Date'], errors='coerce')
-        return_df['Last_Trigger_Date'] = pd.to_datetime(return_df['Last_Trigger_Date'], errors='coerce')
-        #print(accuracy_df.info())
-        # Set the filter date
+        # accuracy_df['Last_Trigger_Date'] = pd.to_datetime(accuracy_df['Last_Trigger_Date'], errors='coerce')
+        # return_df['Last_Trigger_Date'] = pd.to_datetime(return_df['Last_Trigger_Date'], errors='coerce')
+        # #print(accuracy_df.info())
+        # # Set the filter date
         
-        filter_date = datetime.now(timezone.utc) - pd.Timedelta(days=num_last_trig_day)
-        filter_date = filter_date.replace(tzinfo=None)
-        #print("filter_date",filter_date)
-        # Apply the filter
-        accuracy_df = accuracy_df[accuracy_df['Last_Trigger_Date'] >= filter_date]
-        return_df = return_df[return_df['Last_Trigger_Date'] >= filter_date]
+        # filter_date = datetime.now(timezone.utc) - pd.Timedelta(days=num_last_trig_day)
+        # filter_date = filter_date.replace(tzinfo=None)
+        # #print("filter_date",filter_date)
+        # # Apply the filter
+        # accuracy_df = accuracy_df[accuracy_df['Last_Trigger_Date'] >= filter_date]
+        # return_df = return_df[return_df['Last_Trigger_Date'] >= filter_date]
 
-        accuracy_df=accuracy_df[accuracy_df['Total_Return']>0]
-        return_df=return_df[return_df['Total_Return']>0]
+        accuracy_df=accuracy_df[accuracy_df['Total_Return']>0].set_index('Symbol').round(2)
+        return_df=return_df[return_df['Total_Return']>0].set_index('Symbol').round(2)
         # Display the tables
-        st.subheader(f"Return Table (Last {num_last_trig_day} Days)")
-        st.dataframe(return_df.sort_values('Last_Trigger_Date',ascending=False))
+        st.subheader(f"Focus on Return")
+        st.dataframe(return_df.sort_values('Last_Trigger_Date',ascending=False).head(10))
 
-        st.subheader(f"Accuracy Table (Last {num_last_trig_day} Days)")
-        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False))
+        st.subheader(f"Focus on Accuracy")
+        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(10))
 else:
     st.warning("Strategy results file not found.")
 
