@@ -240,8 +240,8 @@ if os.path.exists(param_result_file):
         accuracy_df = pd.DataFrame(accuracy_results)
         return_df = pd.DataFrame(return_results)
 
-        accuracy_df=accuracy_df[accuracy_df['Total_Return']>0].set_index('Symbol').round(2)
-        return_df=return_df[return_df['Total_Return']>0].set_index('Symbol').round(2)
+        accuracy_df=accuracy_df[(accuracy_df['Total_Return']>0) & (accuracy_df['Accuracy']>50)].set_index('Symbol').round(2)
+        return_df=return_df[return_df['Total_Return']>50].set_index('Symbol').round(2)
 
         current_date = datetime.now().date()
 
