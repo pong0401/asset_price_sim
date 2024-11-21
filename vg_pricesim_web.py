@@ -177,10 +177,11 @@ def find_last_trigger(data, x_days, volume_increase_pct, holding_period):
 # Streamlit App Layout
 st.title("Crypto Strategy Performance and Price Simulation")
 st.text("Analyze crypto strategies and simulate future price scenarios.")
-st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา")
+st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา และ จำนวนวันที่ Hold order z วัน")
+st.text("และทำการ Monitor ราคา และ Volume ถ้าเข้าเงื่อนไขจากการ Backtest จะนำมา List ในตารางด้านล่าง โดยบอกวันที่มีสัญญาณ Trigger")
 st.text("ช่วง Bull run ตอนที่ราคา BTC ATH ,เหรียญอื่นจะขึ้นตาม ช่วงที่หมด Bull run ไม่ควรใช้ strategy นี้ และใช้เพื่อการศึกษาเท่านั้น")
 # Section 1: Strategy Analysis (Accuracy and Return Tables)
-st.subheader("Crypto Strategy Backtesting")
+st.subheader("Crypto Strategy Signal Trigger for Short Term Trader")
 param_result_file = "param_result.csv"
 
 if os.path.exists(param_result_file):
@@ -264,7 +265,7 @@ else:
     st.warning("Strategy results file not found.")
 
 # Section 2: Variance Gamma Price Simulation
-st.subheader("Variance Gamma Price Simulation")
+st.subheader("Variance Gamma Price Simulation for Middle term trader")
 
 asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
 num_scenarios = st.slider("Number of Scenarios:", 100, 5000, 1000)
