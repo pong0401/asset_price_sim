@@ -30,9 +30,24 @@ crypto_symbols = [
     'AXS/USDT', 'CHZ/USDT', 'RPL/USDT', 'GRT/USDT', 'CAKE/USDT',
     'KAVA/USDT', 'ZIL/USDT', 'XEC/USDT', 'BAT/USDT', 'CRV/USDT',
     'DYDX/USDT', 'GALA/USDT', 'STX/USDT', 'IMX/USDT', 'BAL/USDT',
-    'BONK/USDT',  # Popular Solana-based meme coin
-    'PEPE/USDT',  # Inspired by "Pepe the Frog" meme
-    'FLOKI/USDT',  # Inspired by Elon Musk's Shiba Inu
+    'BONK/USDT', 'PEPE/USDT', 'FLOKI/USDT', 'LDO/USDT',
+    'SUI/USDT', 'KAS/USDT', 'INJ/USDT', 'ARB/USDT', 'OP/USDT',
+    'WLD/USDT', 'GMX/USDT', 'MAGIC/USDT', 'LRC/USDT', 'ENS/USDT',
+    'FXS/USDT', 'MINA/USDT', 'OSMO/USDT', 'ROSE/USDT', 'CELO/USDT',
+    '1INCH/USDT', 'GNO/USDT', 'KNC/USDT', 'ANKR/USDT', 'COTI/USDT',
+    'SXP/USDT', 'YFI/USDT', 'COMP/USDT', 'SNX/USDT',
+    'UMA/USDT', 'ZRX/USDT', 'BNT/USDT', 'REN/USDT',
+    'CTSI/USDT', 'DGB/USDT', 'STORJ/USDT', 'CVC/USDT',
+    'NKN/USDT', 'SC/USDT', 'ZEN/USDT', 'KMD/USDT', 'ARK/USDT',
+    'DENT/USDT', 'FUN/USDT', 'MTL/USDT', 'STMX/USDT', 'POWR/USDT',
+    'REQ/USDT', 'BAND/USDT', 'RLC/USDT', 'MLN/USDT',
+    'NMR/USDT', 'LPT/USDT', 'OXT/USDT', 'DIA/USDT',
+    'TRB/USDT', 'AVA/USDT', 
+    'LIT/USDT', 'PHA/USDT', 'AKRO/USDT', 'RIF/USDT', 
+    'CTK/USDT', 'DODO/USDT', 'ALPHA/USDT', 'BEL/USDT', 'TWT/USDT',
+    'FLM/USDT', 'WING/USDT',
+    'SUSHI/USDT', 'CREAM/USDT', 
+     'SUN/USDT'
 ]
 
 # Variance Gamma Functions
