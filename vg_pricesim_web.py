@@ -276,12 +276,12 @@ if os.path.exists(param_result_file):
         return_df = return_df[desired_columns]
         # Display the tables
         st.subheader(f"Focus on Return")
-        st.dataframe(return_df.sort_values('Last_Trigger_Date',ascending=False).head(10))
+        st.dataframe(return_df.sort_values('Last_Trigger_Date',ascending=False).head(20))
         st.subheader(f"Sell of Focus on Return")
         st.dataframe(return_df[return_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
 
         st.subheader(f"Focus on Accuracy")
-        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(10))
+        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(20))
         st.subheader(f"Sell of Focus on Accuracy")
         st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
 else:
