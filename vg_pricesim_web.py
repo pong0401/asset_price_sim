@@ -103,7 +103,7 @@ def is_file_current(filename):
     df = pd.read_csv(filename)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     last_date = df['timestamp'].max().date()
-    yesterday = datetime.now() - timedelta(days=1)
+    yesterday = datetime.now() - timedelta(hours=1)
     return last_date == yesterday.date()
 
 # Function to fetch and save data
@@ -280,7 +280,7 @@ if os.path.exists(param_result_file):
             'Num_Signals'
         ]
 
-        accuracy_df = accuracy_df[desired_columns]
+        accuracy_df = accuracy_df[desired_columns].round(2)
         # Display the tables
         st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(20))
         st.subheader(f"Sell Order")
