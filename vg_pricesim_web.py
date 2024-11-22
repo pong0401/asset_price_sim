@@ -179,14 +179,18 @@ def filter_last_7_days(df):
     return df[df['timestamp'] >= (datetime.now(timezone.utc) - pd.Timedelta(days=7))]
 
 def find_last_trigger_date(data, x_days, volume_increase_pct, holding_period):
-    # Ensure the index is datetime and properly set
+    # Ensure the index is a DatetimeIndex
+    if data['timestamp'].dtype != 'datetime64[ns]':
+        data['timestamp'] = pd.to_datetime(data['timestamp'])
     if not isinstance(data.index, pd.DatetimeIndex):
-        data['timestamp'] = pd.to_datetime(data['timestamp'])  # Convert to datetime
-        data.set_index('timestamp', inplace=True)  # Set as index
+        data.set_index('timestamp', inplace=True)
 
-    # Localize timezone to UTC if not already set
-    if data.index.tz is None:  # Check if timezone information is missing
-        data.index = data.index.tz_localize('UTC')  # Localize to UTC
+    # Check if the index is timezone-naive
+    if data.index.tzinfo is None:
+        data.index = data.index.tz_localize('UTC')  # Localize to UTC if naive
+
+    # Convert to the desired timezone (GMT+7)
+    data.index = data.index.tz_convert('Asia/Bangkok')
 
     # Calculate X-day high (excluding the current day)
     data['x_day_high'] = data['Close'].shift(1).rolling(window=x_days).max()
@@ -198,19 +202,17 @@ def find_last_trigger_date(data, x_days, volume_increase_pct, holding_period):
     data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
 
     # Find the last trigger date
-    last_trigger_date = data[data['trigger']].index.max()
-    
-    # Convert to GMT+7 if a trigger exists
-    if last_trigger_date:
-        last_trigger_date = last_trigger_date.tz_convert('Asia/Bangkok')
+    last_trigger_date = data[data['trigger']].index.max() if data['trigger'].any() else None
 
     return last_trigger_date
+
+
 
 
 # Streamlit App Layout
 st.title("Crypto Strategy Performance and Price Simulation")
 st.text("Analyze crypto strategies and simulate future price scenarios.")
-st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา และ จำนวนวันที่ Hold order z วัน")
+st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา และ จำนวนวันที่ Hold order z ชั่วโมง")
 st.text("และทำการ Monitor ราคา และ Volume ถ้าเข้าเงื่อนไขจากการ Backtest จะนำมา List ในตารางด้านล่าง โดยบอกวันที่มีสัญญาณ Trigger")
 st.text("ช่วง Bull run ตอนที่ราคา BTC ATH ,เหรียญอื่นจะขึ้นตาม ช่วงที่หมด Bull run ไม่ควรใช้ strategy นี้ และใช้เพื่อการศึกษาเท่านั้น")
 # Section 1: Strategy Analysis (Accuracy and Return Tables)
@@ -222,23 +224,26 @@ if os.path.exists(param_result_file):
     comparison_df=pd.read_csv(param_result_file,index_col=0)
     if crypto_data is not None:
         accuracy_results = []
-
+        #return_results = []
+        best_df=comparison_df.copy()
         # Iterate through symbols and calculate results
         for symbol, df in crypto_data.items():
             # Best accuracy parameters
-            best_accuracy_row = comparison_df[comparison_df['Symbol'] == symbol].sort_values(by='Accuracy_No_TP_SL', ascending=False).iloc[0]
+            #print(symbol)
+            best_accuracy_row = best_df[best_df['Symbol'] == symbol]
+            #print(best_accuracy_row)
             #print(best_accuracy_row['TP(%)'])
             best_accuracy_params = {
-                'x_hours': best_accuracy_row['High_in_x_hours'],
-                'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'],
-                'holding_period': best_accuracy_row['Holding_Period'],
-                'TP(%)' : best_accuracy_row['TP(%)'],
-                'SL(%)' : best_accuracy_row['SL(%)'],
-                'Num_Signals': best_accuracy_row['Num_Signals'],
-                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'],
-                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'],
-                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'],
-                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL']     
+                'x_hours': best_accuracy_row['High_in_x_hours'].values[0],
+                'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'].values[0],
+                'holding_period': best_accuracy_row['Holding_Period'].values[0],
+                'TP(%)' : best_accuracy_row['TP(%)'].values[0],
+                'SL(%)' : best_accuracy_row['SL(%)'].values[0],
+                'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
+                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'].values[0],
+                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'].values[0],
+                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'].values[0],
+                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL'] .values[0]    
             }
             last_trigger_date = find_last_trigger_date(
                 df.copy(), best_accuracy_params['x_hours'], best_accuracy_params['volume_increase_pct'], best_accuracy_params['holding_period']
@@ -252,17 +257,17 @@ if os.path.exists(param_result_file):
                 'Holding_hours': best_accuracy_params['holding_period'],
                 'TP(%)' : best_accuracy_params['TP(%)'],
                 'SL(%)' : best_accuracy_params['SL(%)'],
-                'Num_Signals': best_accuracy_row['Num_Signals'],
-                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'],
-                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'],
-                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'],
-                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL']       
+                'Num_Signals': best_accuracy_params['Num_Signals'],
+                'Total_Return_No_TP_SL': best_accuracy_params['Total_Return_No_TP_SL'],
+                'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
+                'Total_Return_With_TP_SL': best_accuracy_params['Total_Return_With_TP_SL'],
+                'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL']      
             })
 
-        accuracy_df = pd.DataFrame(accuracy_results)
+        accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
 
 
-        accuracy_df=accuracy_df[(accuracy_df['Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50) & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
+        #accuracy_df=accuracy_df[(accuracy_df['Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50) & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
         current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
         # For Accuracy DataFrame
