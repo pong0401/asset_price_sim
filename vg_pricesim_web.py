@@ -267,7 +267,7 @@ if os.path.exists(param_result_file):
         accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
 
 
-        #accuracy_df=accuracy_df[(accuracy_df['Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50) & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
+        accuracy_df=accuracy_df[(accuracy_df['Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
         current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
         # For Accuracy DataFrame
