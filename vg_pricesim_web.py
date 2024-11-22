@@ -94,17 +94,30 @@ def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, nu
     return pct_changes_df
 # Function to fetch data and save to a file
 
-def is_file_current(filename):
+def is_file_updated_recently(filename):
     """
-    Check if the file contains data up to yesterday.
+    Check if the file contains data up to the last hour.
     """
     if not os.path.exists(filename):
         return False
+    
+    # Load the file and parse timestamps
     df = pd.read_csv(filename)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    last_date = df['timestamp'].max().date()
-    yesterday = datetime.now() - timedelta(hours=1)
-    return last_date == yesterday.date()
+    
+    # Ensure timestamps are timezone-aware (assume UTC for file data)
+    if df['timestamp'].dt.tz is None:
+        df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+    
+    # Get the most recent timestamp in the file
+    last_timestamp = df['timestamp'].max()
+    
+    # Calculate the time threshold (one hour ago, in UTC)
+    utc = pytz.UTC
+    one_hour_ago = datetime.now(utc) - timedelta(hours=1)
+    
+    # Check if the most recent timestamp is within the last hour
+    return last_timestamp >= one_hour_ago
 
 # Function to fetch and save data
 def fetch_and_save_data(symbols, limit=30):
@@ -159,7 +172,7 @@ def load_or_fetch_data(symbols):
     # Check files
     for symbol in symbols:
         filename = os.path.join(data_dir, f"{symbol.replace('-', '_')}.csv")
-        if is_file_current(filename):
+        if is_file_updated_recently(filename):
             crypto_data[symbol] = pd.read_csv(filename)  # Load current file
         else:
             outdated_symbols.append(symbol)  # Mark as outdated
@@ -178,7 +191,7 @@ def filter_last_7_days(df):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df[df['timestamp'] >= (datetime.now(timezone.utc) - pd.Timedelta(days=7))]
 
-def find_last_trigger_date(data, x_days, volume_increase_pct, holding_period):
+def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, holding_period):
     # Ensure the index is a DatetimeIndex
     if data['timestamp'].dtype != 'datetime64[ns]':
         data['timestamp'] = pd.to_datetime(data['timestamp'])
@@ -201,11 +214,16 @@ def find_last_trigger_date(data, x_days, volume_increase_pct, holding_period):
     # Trigger condition: Price above X-day high and volume increased by X%
     data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
 
-    # Find the last trigger date
-    last_trigger_date = data[data['trigger']].index.max() if data['trigger'].any() else None
+    # Find the last trigger date and price
+    if data['trigger'].any():
+        last_trigger_row = data[data['trigger']].iloc[-1]
+        last_trigger_date = last_trigger_row.name
+        last_trigger_price = last_trigger_row['Close']
+    else:
+        last_trigger_date = None
+        last_trigger_price = None
 
-    return last_trigger_date
-
+    return last_trigger_date, last_trigger_price
 
 
 
@@ -245,13 +263,14 @@ if os.path.exists(param_result_file):
                 'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'].values[0],
                 'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL'] .values[0]    
             }
-            last_trigger_date = find_last_trigger_date(
+            last_trigger_date,last_trigger_price = find_last_trigger_date_and_price(
                 df.copy(), best_accuracy_params['x_hours'], best_accuracy_params['volume_increase_pct'], best_accuracy_params['holding_period']
             )
             #print(best_accuracy_params)
             accuracy_results.append({
                 'Symbol': symbol,
                 'Last_Trigger_Date': last_trigger_date,
+                'Price' : last_trigger_price,
                 'High_in_x_hours': best_accuracy_params['x_hours'],
                 'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
                 'Holding_hours': best_accuracy_params['holding_period'],
@@ -274,7 +293,7 @@ if os.path.exists(param_result_file):
         accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','TP(%)','SL(%)', 'Sell', 'Total_Return_No_TP_SL', 
+            'Last_Trigger_Date', 'Holding_hours','Price','TP(%)','SL(%)', 'Sell', 'Total_Return_No_TP_SL', 
             'Accuracy_No_TP_SL','Total_Return_With_TP_SL', 
             'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
             'Num_Signals'
