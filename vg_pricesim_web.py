@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 import yfinance as yf
 from scipy import optimize
 import plotly.graph_objects as go
+import pytz
 
 # Directory to save crypto data files
 data_dir = "crypto_data"
@@ -15,39 +16,35 @@ data_dir = "crypto_data"
 # Ensure the directory exists
 os.makedirs(data_dir, exist_ok=True)
 
-# Number of days for filtering last trigger
-num_last_trig_day = 3
-exchange = ccxt.binance()
+
 # List of crypto symbols
 crypto_symbols = [
-    'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'XRP/USDT', 'DOGE/USDT',
-    'SOL/USDT', 'ADA/USDT', 'DOT/USDT', 'LTC/USDT',
-    'SHIB/USDT', 'TRX/USDT', 'AVAX/USDT', 'UNI/USDT', 'LINK/USDT',
-    'ATOM/USDT', 'ETC/USDT', 'XLM/USDT', 'BCH/USDT',
-    'APT/USDT', 'FIL/USDT', 'ALGO/USDT', 'VET/USDT', 'ICP/USDT',
-    'NEAR/USDT', 'QNT/USDT', 'FTM/USDT', 'EOS/USDT', 'SAND/USDT',
-    'AAVE/USDT', 'MANA/USDT', 'THETA/USDT', 'XTZ/USDT', 'EGLD/USDT',
-    'AXS/USDT', 'CHZ/USDT', 'RPL/USDT', 'GRT/USDT', 'CAKE/USDT',
-    'KAVA/USDT', 'ZIL/USDT', 'XEC/USDT', 'BAT/USDT', 'CRV/USDT',
-    'DYDX/USDT', 'GALA/USDT', 'STX/USDT', 'IMX/USDT', 'BAL/USDT',
-    'BONK/USDT', 'PEPE/USDT', 'FLOKI/USDT', 'LDO/USDT',
-    'SUI/USDT', 'KAS/USDT', 'INJ/USDT', 'ARB/USDT', 'OP/USDT',
-    'WLD/USDT', 'GMX/USDT', 'MAGIC/USDT', 'LRC/USDT', 'ENS/USDT',
-    'FXS/USDT', 'MINA/USDT', 'OSMO/USDT', 'ROSE/USDT', 'CELO/USDT',
-    '1INCH/USDT', 'GNO/USDT', 'KNC/USDT', 'ANKR/USDT', 'COTI/USDT',
-    'SXP/USDT', 'YFI/USDT', 'COMP/USDT', 'SNX/USDT',
-    'UMA/USDT', 'ZRX/USDT', 'BNT/USDT', 'REN/USDT',
-    'CTSI/USDT', 'DGB/USDT', 'STORJ/USDT', 'CVC/USDT',
-    'NKN/USDT', 'SC/USDT', 'ZEN/USDT', 'KMD/USDT', 'ARK/USDT',
-    'DENT/USDT', 'FUN/USDT', 'MTL/USDT', 'STMX/USDT', 'POWR/USDT',
-    'REQ/USDT', 'BAND/USDT', 'RLC/USDT', 'MLN/USDT',
-    'NMR/USDT', 'LPT/USDT', 'OXT/USDT', 'DIA/USDT',
-    'TRB/USDT', 'AVA/USDT', 
-    'LIT/USDT', 'PHA/USDT', 'AKRO/USDT', 'RIF/USDT', 
-    'CTK/USDT', 'DODO/USDT', 'ALPHA/USDT', 'BEL/USDT', 'TWT/USDT',
-    'FLM/USDT', 'WING/USDT',
-    'SUSHI/USDT', 'CREAM/USDT', 
-     'SUN/USDT'
+    'BTC-USD', 'ETH-USD', 'BNB-USD', 'XRP-USD', 'DOGE-USD',
+    'SOL-USD', 'ADA-USD', 'DOT-USD', 'LTC-USD', 'SHIB-USD',
+    'TRX-USD', 'AVAX-USD', 'UNI-USD', 'LINK-USD', 'ATOM-USD',
+    'ETC-USD', 'XLM-USD', 'BCH-USD', 'APT-USD', 'FIL-USD',
+    'ALGO-USD', 'VET-USD', 'ICP-USD', 'NEAR-USD', 'QNT-USD',
+    'FTM-USD', 'EOS-USD', 'SAND-USD', 'AAVE-USD', 'MANA-USD',
+    'THETA-USD', 'XTZ-USD', 'EGLD-USD', 'AXS-USD', 'CHZ-USD',
+    'RPL-USD', 'CAKE-USD', 'KAVA-USD', 'ZIL-USD',
+    'XEC-USD', 'BAT-USD', 'CRV-USD', 'DYDX-USD', 'GALA-USD',
+    'STX-USD', 'BAL-USD', 'BONK-USD',
+    'FLOKI-USD', 'LDO-USD', 'KAS-USD',
+    'INJ-USD', 'ARB-USD', 'OP-USD', 'WLD-USD',
+     'LRC-USD', 'ENS-USD', 'FXS-USD', 'MINA-USD',
+    'OSMO-USD', 'ROSE-USD', 'CELO-USD', '1INCH-USD', 'GNO-USD',
+    'KNC-USD', 'ANKR-USD', 'COTI-USD', 'SXP-USD', 'YFI-USD',
+     'SNX-USD', 'UMA-USD', 'ZRX-USD', 'BNT-USD',
+    'REN-USD', 'CTSI-USD', 'DGB-USD', 'STORJ-USD', 'CVC-USD',
+    'NKN-USD', 'SC-USD', 'ZEN-USD', 'KMD-USD', 'ARK-USD',
+    'DENT-USD', 'FUN-USD', 'MTL-USD', 'STMX-USD', 'POWR-USD',
+    'REQ-USD', 'BAND-USD', 'RLC-USD', 'MLN-USD', 'ANT-USD',
+    'NMR-USD', 'LPT-USD', 'OXT-USD', 'DIA-USD', 'TRB-USD',
+    'WNXM-USD', 'AVA-USD', 'LIT-USD', 'PHA-USD',
+    'AKRO-USD', 'RIF-USD', 'DOCK-USD', 'DODO-USD',
+    'ALPHA-USD', 'BEL-USD', 'TWT-USD', 'FOR-USD', 'FRONT-USD',
+    'UNFI-USD', 'FLM-USD', 'SUSHI-USD', 'YFII-USD',
+    'CREAM-USD', 'KP3R-USD', 'CVP-USD', 'SUN-USD'
 ]
 
 # Variance Gamma Functions
@@ -96,98 +93,119 @@ def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, nu
     pct_changes_df = pd.DataFrame(pct_changes, index=dates, columns=[f'Scenario_{i+1}' for i in range(num_scenarios)])
     return pct_changes_df
 # Function to fetch data and save to a file
-def fetch_and_save_data(symbol, timeframe='1d', since=None, limit=365):
-    all_data = []
-    while True:
-        data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit)
-        if not data:
-            break
-        all_data.extend(data)
-        since = data[-1][0] + 1
-        time.sleep(exchange.rateLimit / 1000)  # Respect rate limit
 
-    # Save to file
-    df = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-
-    filename = f"{data_dir}/{symbol.replace('/', '_')}.csv"
-    df.to_csv(filename, index=False)
-
-    return df
-
-# Check if file is current
 def is_file_current(filename):
+    """
+    Check if the file contains data up to yesterday.
+    """
     if not os.path.exists(filename):
         return False
     df = pd.read_csv(filename)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     last_date = df['timestamp'].max().date()
-    return last_date == datetime.now(timezone.utc).date()
+    yesterday = datetime.now() - timedelta(days=1)
+    return last_date == yesterday.date()
 
-# Load data from files or fetch new data
+# Function to fetch and save data
+def fetch_and_save_data(symbols, limit=30):
+    """
+    Fetch historical data for multiple symbols, save to files, and return as a dictionary of DataFrames.
+    """
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=limit)
+
+    # Fetch data
+    data = yf.download(
+        tickers=symbols,
+        start=start_date.strftime('%Y-%m-%d'),
+        end=end_date.strftime('%Y-%m-%d'),
+        interval='1h',
+        group_by='ticker',
+        auto_adjust=True,
+        threads=True
+    )
+
+    crypto_data = {}
+
+    # Handle the multi-index columns returned by yfinance
+    if isinstance(data.columns, pd.MultiIndex):
+        for symbol in symbols:
+            if symbol in data.columns.levels[0]:  # Check if symbol has data
+                symbol_data = data[symbol].dropna().reset_index()
+                symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
+                crypto_data[symbol] = symbol_data
+                filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
+                symbol_data.to_csv(filename, index=False)
+    else:
+        # If data does not have MultiIndex, handle it as a single DataFrame
+        for symbol in symbols:
+            if not data.empty and symbol in data:
+                symbol_data = data[[col for col in data.columns if col.startswith(symbol)]].dropna().reset_index()
+                symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
+                crypto_data[symbol] = symbol_data
+                filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
+                symbol_data.to_csv(filename, index=False)
+    
+    return crypto_data
+
+# Load or fetch data
 def load_or_fetch_data(symbols):
+    """
+    Load data from existing files or fetch new data for outdated files.
+    """
     crypto_data = {}
     outdated_symbols = []
 
     # Check files
     for symbol in symbols:
-        filename = f"{data_dir}/{symbol.replace('/', '_')}.csv"
+        filename = os.path.join(data_dir, f"{symbol.replace('-', '_')}.csv")
         if is_file_current(filename):
             crypto_data[symbol] = pd.read_csv(filename)  # Load current file
         else:
             outdated_symbols.append(symbol)  # Mark as outdated
 
-    # Show fetch button if there are outdated files
+    # Fetch data for outdated symbols
     if outdated_symbols:
-        st.warning(f"The following symbols have outdated data: {', '.join(outdated_symbols)}")
-        if st.button("Fetch Latest Data"):
-            with st.spinner("Fetching data..."):
-                progress = st.progress(0)
-                for i, symbol in enumerate(outdated_symbols):  # Fetch only outdated symbols
-                    crypto_data[symbol] = fetch_and_save_data(symbol)
-                    progress.progress((i + 1) / len(outdated_symbols))
-                progress.empty()
-                st.success("Outdated data fetched successfully!")
-            return crypto_data, True
-        else:
-            st.warning("Please click the button above to fetch the latest data for outdated symbols.")
-            return crypto_data, False
+        print(f"Fetching data for outdated symbols: {', '.join(outdated_symbols)}")
+        fetched_data = fetch_and_save_data(outdated_symbols)
+        for symbol, data in fetched_data.items():
+            crypto_data[symbol] = data
 
-    return crypto_data, True
+    return crypto_data
 
 # Function to filter data for the last 7 days
 def filter_last_7_days(df):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df[df['timestamp'] >= (datetime.now(timezone.utc) - pd.Timedelta(days=7))]
 
-# Function to find the last trigger and calculate metrics
-def find_last_trigger(data, x_days, volume_increase_pct, holding_period):
+def find_last_trigger_date(data, x_days, volume_increase_pct, holding_period):
+    # Ensure the index is datetime and properly set
+    if not isinstance(data.index, pd.DatetimeIndex):
+        data['timestamp'] = pd.to_datetime(data['timestamp'])  # Convert to datetime
+        data.set_index('timestamp', inplace=True)  # Set as index
+
+    # Localize timezone to UTC if not already set
+    if data.index.tz is None:  # Check if timezone information is missing
+        data.index = data.index.tz_localize('UTC')  # Localize to UTC
+
     # Calculate X-day high (excluding the current day)
-    data['x_day_high'] = data['close'].shift(1).rolling(window=x_days).max()
+    data['x_day_high'] = data['Close'].shift(1).rolling(window=x_days).max()
 
     # Calculate volume percentage increase
-    data['volume_pct_increase'] = (data['volume'] - data['volume'].shift(1)) / data['volume'].shift(1) * 100
+    data['volume_pct_increase'] = (data['Volume'] - data['Volume'].shift(1)) / data['Volume'].shift(1) * 100
 
     # Trigger condition: Price above X-day high and volume increased by X%
-    data['trigger'] = (data['close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
+    data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
 
-    # Calculate returns for triggered signals with the holding period
-    data['future_close'] = data['close'].shift(-holding_period)  # Close price after the holding period
-    data['returns'] = np.where(data['trigger'], (data['future_close'] - data['close']) / data['close'], 0)
+    # Find the last trigger date
+    last_trigger_date = data[data['trigger']].index.max()
+    
+    # Convert to GMT+7 if a trigger exists
+    if last_trigger_date:
+        last_trigger_date = last_trigger_date.tz_convert('Asia/Bangkok')
 
-    # Metrics
-    num_signals = data['trigger'].sum()  # Number of signals
-    total_return = data['returns'].sum() * 100  # Total return in percentage
-    success_signals = (data['returns'] > 0).sum()  # Number of successful signals
-    accuracy = success_signals / num_signals * 100 if num_signals > 0 else 0  # Accuracy percentage
-    mean_return = data['returns'][data['returns'] != 0].mean()  # Mean return for signals
-    std_dev = data['returns'][data['returns'] != 0].std()  # Standard deviation of returns
-    sharpe_ratio = mean_return / std_dev if std_dev != 0 else 0  # Sharpe Ratio
+    return last_trigger_date
 
-    # Last trigger date
-    last_trigger_date = data.loc[data['trigger'], 'timestamp'].max()
-
-    return last_trigger_date, num_signals, total_return, accuracy, sharpe_ratio
 
 # Streamlit App Layout
 st.title("Crypto Strategy Performance and Price Simulation")
@@ -197,92 +215,70 @@ st.text("และทำการ Monitor ราคา และ Volume ถ้�
 st.text("ช่วง Bull run ตอนที่ราคา BTC ATH ,เหรียญอื่นจะขึ้นตาม ช่วงที่หมด Bull run ไม่ควรใช้ strategy นี้ และใช้เพื่อการศึกษาเท่านั้น")
 # Section 1: Strategy Analysis (Accuracy and Return Tables)
 st.subheader("Crypto Strategy Signal Trigger for Short Term Trader")
-param_result_file = "param_result.csv"
+param_result_file = "param_result_with_TP_SL.csv"
 
 if os.path.exists(param_result_file):
-    crypto_data, data_ready = load_or_fetch_data(crypto_symbols)
-    if data_ready:
+    crypto_data = load_or_fetch_data(crypto_symbols)
+    comparison_df=pd.read_csv(param_result_file,index_col=0)
+    if crypto_data is not None:
         accuracy_results = []
-        return_results = []
-        results_df = pd.read_csv(param_result_file)
-        # Process data
+
+        # Iterate through symbols and calculate results
         for symbol, df in crypto_data.items():
             # Best accuracy parameters
-            best_accuracy_row = results_df[results_df['Symbol'] == symbol].sort_values(by='Accuracy', ascending=False).iloc[0]
+            best_accuracy_row = comparison_df[comparison_df['Symbol'] == symbol].sort_values(by='Accuracy_No_TP_SL', ascending=False).iloc[0]
+            #print(best_accuracy_row['TP(%)'])
             best_accuracy_params = {
-                'x_days': best_accuracy_row['High_in_x_days'],
+                'x_hours': best_accuracy_row['High_in_x_hours'],
                 'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'],
-                'holding_period': best_accuracy_row['Holding_Period']
+                'holding_period': best_accuracy_row['Holding_Period'],
+                'TP(%)' : best_accuracy_row['TP(%)'],
+                'SL(%)' : best_accuracy_row['SL(%)'],
+                'Num_Signals': best_accuracy_row['Num_Signals'],
+                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'],
+                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'],
+                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'],
+                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL']     
             }
-            best_accuracy_date, num_signals_acc, total_return_acc, accuracy_acc, sharpe_acc = find_last_trigger(
-                df.copy(), best_accuracy_params['x_days'], best_accuracy_params['volume_increase_pct'], best_accuracy_params['holding_period']
+            last_trigger_date = find_last_trigger_date(
+                df.copy(), best_accuracy_params['x_hours'], best_accuracy_params['volume_increase_pct'], best_accuracy_params['holding_period']
             )
+            #print(best_accuracy_params)
             accuracy_results.append({
                 'Symbol': symbol,
-                'Last_Trigger_Date': best_accuracy_date,
-                'Holding_Days': best_accuracy_params['holding_period'],
-                'Total_Return': total_return_acc,
-                'Accuracy': accuracy_acc,
-                'High_in_x_days': best_accuracy_params['x_days'],
+                'Last_Trigger_Date': last_trigger_date,
+                'High_in_x_hours': best_accuracy_params['x_hours'],
                 'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
-                'Num_Signals': num_signals_acc,
-                'Sharpe_Ratio': sharpe_acc
+                'Holding_hours': best_accuracy_params['holding_period'],
+                'TP(%)' : best_accuracy_params['TP(%)'],
+                'SL(%)' : best_accuracy_params['SL(%)'],
+                'Num_Signals': best_accuracy_row['Num_Signals'],
+                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'],
+                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'],
+                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'],
+                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL']       
             })
 
-            # Best return parameters
-            best_return_row = results_df[results_df['Symbol'] == symbol].sort_values(by='Total_Return', ascending=False).iloc[0]
-            best_return_params = {
-                'x_days': best_return_row['High_in_x_days'],
-                'volume_increase_pct': best_return_row['Volume_Increase_Pct'],
-                'holding_period': best_return_row['Holding_Period']
-            }
-            best_return_date, num_signals_ret, total_return_ret, accuracy_ret, sharpe_ret = find_last_trigger(
-                df.copy(), best_return_params['x_days'], best_return_params['volume_increase_pct'], best_return_params['holding_period']
-            )
-            return_results.append({
-                'Symbol': symbol,
-                'Last_Trigger_Date': best_return_date,
-                'Holding_Days': best_return_params['holding_period'],
-                'Total_Return': total_return_ret,
-                'Accuracy': accuracy_ret,
-                'High_in_x_days': best_return_params['x_days'],
-                'Volume_Increase_Pct': best_return_params['volume_increase_pct'],
-                'Num_Signals': num_signals_ret,
-                'Sharpe_Ratio': sharpe_ret
-            })
-
-        # Convert to DataFrames
         accuracy_df = pd.DataFrame(accuracy_results)
-        return_df = pd.DataFrame(return_results)
 
-        accuracy_df=accuracy_df[(accuracy_df['Total_Return']>0) & (accuracy_df['Accuracy']>50)].set_index('Symbol').round(2)
-        return_df=return_df[return_df['Total_Return']>50].set_index('Symbol').round(2)
 
-        current_date = datetime.now().date()
-
-        # For Return DataFrame
-        return_df['Sell'] = (pd.to_datetime(return_df['Last_Trigger_Date']) + pd.to_timedelta(return_df['Holding_Days'], unit='d')).dt.date < current_date
+        accuracy_df=accuracy_df[(accuracy_df['Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50) & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
+        current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
         # For Accuracy DataFrame
-        accuracy_df['Sell'] = (pd.to_datetime(accuracy_df['Last_Trigger_Date']) + pd.to_timedelta(accuracy_df['Holding_Days'], unit='d')).dt.date < current_date
+        accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_Days', 'Sell', 'Total_Return', 
-            'Accuracy', 'High_in_x_days', 'Volume_Increase_Pct', 
-            'Num_Signals', 'Sharpe_Ratio'
+            'Last_Trigger_Date', 'Holding_hours','TP(%)','SL(%)', 'Sell', 'Total_Return_No_TP_SL', 
+            'Accuracy_No_TP_SL','Total_Return_With_TP_SL', 
+            'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
+            'Num_Signals'
         ]
 
         accuracy_df = accuracy_df[desired_columns]
-        return_df = return_df[desired_columns]
         # Display the tables
-        st.subheader(f"Focus on Return")
-        st.dataframe(return_df.sort_values('Last_Trigger_Date',ascending=False).head(20))
-        st.subheader(f"Sell of Focus on Return")
-        st.dataframe(return_df[return_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
-
-        st.subheader(f"Focus on Accuracy")
         st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(20))
-        st.subheader(f"Sell of Focus on Accuracy")
+        st.subheader(f"Sell Order")
         st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
 else:
     st.warning("Strategy results file not found.")
