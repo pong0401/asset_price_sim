@@ -301,9 +301,9 @@ if os.path.exists(param_result_file):
 
         accuracy_df = accuracy_df[desired_columns].round(2)
         # Display the tables
-        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(20))
+        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(40))
         st.subheader(f"Sell Order")
-        st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(20))
+        st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(40))
 else:
     st.warning("Strategy results file not found.")
 
