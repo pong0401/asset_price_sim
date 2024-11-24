@@ -206,7 +206,7 @@ def update_crypto_data(file_path, ticker):
     # Get current time with timezone
     current_time = datetime.now(pytz.utc)
     current_hour = current_time.replace(minute=0, second=0, microsecond=0)
-
+    #start_date = current_time - timedelta(days=1)
     if not data.empty:
         last_date = data.index.max()
 
@@ -222,11 +222,11 @@ def update_crypto_data(file_path, ticker):
             return data  # No update needed
     else:
         # Default to fetching the last 30 days if the file is empty
-        start_date = current_time - timedelta(days=30)
+        #start_date = current_time - timedelta(days=30)
         end_period='1mo'
 
     # Convert start_date and current_time to 'YYYY-MM-DD' format
-    start_date = start_date.strftime("%Y-%m-%d")
+    #start_date = start_date.strftime("%Y-%m-%d")
     
     #print(start_date,end_date)
     # Fetch updated data
