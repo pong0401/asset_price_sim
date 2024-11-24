@@ -213,7 +213,7 @@ def update_crypto_data(file_path, ticker):
         # Ensure last_date is timezone-aware (convert to UTC)
         if last_date.tzinfo is None:
             last_date = last_date.tz_localize("UTC")
-
+        print("last_date",last_date,"curent hour",current_hour)
         # Check if last_date is more than 1 hour behind current_hour
         if (current_hour - last_date).total_seconds() > 3600:
             end_period = '1d'
