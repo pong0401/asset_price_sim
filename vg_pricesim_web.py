@@ -94,96 +94,175 @@ def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, nu
     return pct_changes_df
 # Function to fetch data and save to a file
 
-def is_file_updated_recently(filename):
-    """
-    Check if the file contains data up to the last hour.
-    """
-    if not os.path.exists(filename):
-        return False
+# def is_file_updated_recently(filename):
+#     """
+#     Check if the file contains data up to the last hour.
+#     """
+#     if not os.path.exists(filename):
+#         return False
     
-    # Load the file and parse timestamps
-    df = pd.read_csv(filename)
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
+#     # Load the file and parse timestamps
+#     df = pd.read_csv(filename)
+#     df['timestamp'] = pd.to_datetime(df['timestamp'])
     
-    # Ensure timestamps are timezone-aware (assume UTC for file data)
-    if df['timestamp'].dt.tz is None:
-        df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+#     # Ensure timestamps are timezone-aware (assume UTC for file data)
+#     if df['timestamp'].dt.tz is None:
+#         df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
     
-    # Get the most recent timestamp in the file
-    last_timestamp = df['timestamp'].max()
+#     # Get the most recent timestamp in the file
+#     last_timestamp = df['timestamp'].max()
     
-    # Calculate the time threshold (one hour ago, in UTC)
-    utc = pytz.UTC
-    one_hour_ago = datetime.now(utc) - timedelta(hours=1)
-    
-    # Check if the most recent timestamp is within the last hour
-    return last_timestamp >= one_hour_ago
+#     # Calculate the time threshold (one hour ago, in UTC)
+#     utc = pytz.UTC
+#     one_hour_ago = datetime.now(utc) - timedelta(hours=1)
+#     print(filename,last_timestamp,one_hour_ago,last_timestamp >= one_hour_ago)
+#     # Check if the most recent timestamp is within the last hour
+#     return last_timestamp >= one_hour_ago
 
-# Function to fetch and save data
-def fetch_and_save_data(symbols, limit=30):
+# # Function to fetch and save data
+# def fetch_and_save_data(symbols, limit=30):
+#     """
+#     Fetch historical data for multiple symbols, save to files, and return as a dictionary of DataFrames.
+#     """
+#     end_date = datetime.now()
+#     start_date = end_date - timedelta(days=limit)
+
+#     # Fetch data
+#     data = yf.download(
+#         tickers=symbols,
+#         start=start_date.strftime('%Y-%m-%d'),
+#         end=end_date.strftime('%Y-%m-%d'),
+#         interval='1h',
+#         group_by='ticker',
+#         auto_adjust=True,
+#         threads=True
+#     )
+
+#     crypto_data = {}
+
+#     # Handle the multi-index columns returned by yfinance
+#     if isinstance(data.columns, pd.MultiIndex):
+#         for symbol in symbols:
+#             if symbol in data.columns.levels[0]:  # Check if symbol has data
+#                 symbol_data = data[symbol].dropna().reset_index()
+#                 symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
+#                 crypto_data[symbol] = symbol_data
+#                 filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
+#                 symbol_data.to_csv(filename, index=False)
+#     else:
+#         # If data does not have MultiIndex, handle it as a single DataFrame
+#         for symbol in symbols:
+#             if not data.empty and symbol in data:
+#                 symbol_data = data[[col for col in data.columns if col.startswith(symbol)]].dropna().reset_index()
+#                 symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
+#                 crypto_data[symbol] = symbol_data
+#                 filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
+#                 symbol_data.to_csv(filename, index=False)
+    
+#     return crypto_data
+
+# # Load or fetch data
+# def load_or_fetch_data(symbols):
+#     """
+#     Load data from existing files or fetch new data for outdated files.
+#     """
+#     crypto_data = {}
+#     outdated_symbols = []
+
+#     # Check files
+#     for symbol in symbols:
+#         filename = os.path.join(data_dir, f"{symbol.replace('-', '_')}.csv")
+#         if is_file_updated_recently(filename):
+#             crypto_data[symbol] = pd.read_csv(filename)  # Load current file
+#         else:
+#             outdated_symbols.append(symbol)  # Mark as outdated
+
+#     # Fetch data for outdated symbols
+#     if outdated_symbols:
+#         print(f"Fetching data for outdated symbols: {', '.join(outdated_symbols)}")
+#         fetched_data = fetch_and_save_data(outdated_symbols)
+#         for symbol, data in fetched_data.items():
+#             crypto_data[symbol] = data
+
+#     return crypto_data
+
+def update_crypto_data(file_path, ticker):
     """
-    Fetch historical data for multiple symbols, save to files, and return as a dictionary of DataFrames.
+    Update the cryptocurrency data file with the latest data and return the updated DataFrame.
+    
+    Parameters:
+        file_path (str): Path to the CSV file.
+        ticker (str): Ticker symbol for the cryptocurrency (e.g., "BTC-USD").
+        
+    Returns:
+        DataFrame: Updated DataFrame with the latest data.
     """
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=limit)
-
-    # Fetch data
-    data = yf.download(
-        tickers=symbols,
-        start=start_date.strftime('%Y-%m-%d'),
-        end=end_date.strftime('%Y-%m-%d'),
-        interval='1h',
-        group_by='ticker',
-        auto_adjust=True,
-        threads=True
-    )
-
-    crypto_data = {}
-
-    # Handle the multi-index columns returned by yfinance
-    if isinstance(data.columns, pd.MultiIndex):
-        for symbol in symbols:
-            if symbol in data.columns.levels[0]:  # Check if symbol has data
-                symbol_data = data[symbol].dropna().reset_index()
-                symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
-                crypto_data[symbol] = symbol_data
-                filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
-                symbol_data.to_csv(filename, index=False)
+    # Load existing data
+    if os.path.exists(file_path):
+        data = pd.read_csv(file_path, parse_dates=["timestamp"], index_col="timestamp")
     else:
-        # If data does not have MultiIndex, handle it as a single DataFrame
-        for symbol in symbols:
-            if not data.empty and symbol in data:
-                symbol_data = data[[col for col in data.columns if col.startswith(symbol)]].dropna().reset_index()
-                symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
-                crypto_data[symbol] = symbol_data
-                filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
-                symbol_data.to_csv(filename, index=False)
-    
-    return crypto_data
+        data = pd.DataFrame()
 
-# Load or fetch data
-def load_or_fetch_data(symbols):
-    """
-    Load data from existing files or fetch new data for outdated files.
-    """
-    crypto_data = {}
-    outdated_symbols = []
+    # Get current time with timezone
+    current_time = datetime.now(pytz.utc)
+    current_hour = current_time.replace(minute=0, second=0, microsecond=0)
 
-    # Check files
-    for symbol in symbols:
-        filename = os.path.join(data_dir, f"{symbol.replace('-', '_')}.csv")
-        if is_file_updated_recently(filename):
-            crypto_data[symbol] = pd.read_csv(filename)  # Load current file
+    if not data.empty:
+        last_date = data.index.max()
+
+        # Ensure last_date is timezone-aware (convert to UTC)
+        if last_date.tzinfo is None:
+            last_date = last_date.tz_localize("UTC")
+
+        # Check if last_date is more than 1 hour behind current_hour
+        if (current_hour - last_date).total_seconds() > 3600:
+            end_period = '1d'
         else:
-            outdated_symbols.append(symbol)  # Mark as outdated
+            #print(f"Data for {ticker} is already up-to-date.")
+            return data  # No update needed
+    else:
+        # Default to fetching the last 30 days if the file is empty
+        start_date = current_time - timedelta(days=30)
+        end_period='1mo'
 
-    # Fetch data for outdated symbols
-    if outdated_symbols:
-        print(f"Fetching data for outdated symbols: {', '.join(outdated_symbols)}")
-        fetched_data = fetch_and_save_data(outdated_symbols)
-        for symbol, data in fetched_data.items():
-            crypto_data[symbol] = data
+    # Convert start_date and current_time to 'YYYY-MM-DD' format
+    start_date = start_date.strftime("%Y-%m-%d")
+    
+    #print(start_date,end_date)
+    # Fetch updated data
+    updated_data = yf.Ticker(ticker).history(period=end_period, interval="1h")
+    if updated_data.empty:
+        print(f"No new data found for {ticker}.")
+        return data
+    # print("data----------")
+    # print(data)
+    # print("update data---")
+    # print(updated_data)
 
+    updated_data = updated_data.rename_axis("timestamp").reset_index()
+    updated_data = updated_data[["timestamp", "Open", "High", "Low", "Close", "Volume"]]
+    updated_data["timestamp"] = pd.to_datetime(updated_data["timestamp"])
+    updated_data.set_index("timestamp", inplace=True)
+
+    # Combine old and new data
+    combined_data = pd.concat([data, updated_data]).drop_duplicates().sort_index()
+
+    # Save updated data back to the file
+    combined_data.to_csv(file_path)
+    print(f"Updated data saved for {ticker}.")
+
+    return combined_data
+
+
+def fetch_update_data():
+    crypto_data={}
+    for file_name in os.listdir(data_dir):
+        if file_name.endswith(".csv"):
+            ticker = file_name.replace("_", "-").replace(".csv", "")  # Convert file name to ticker
+            file_path = os.path.join(data_dir, file_name)
+            #print(f"Processing {file_name}...")
+            updated_df = update_crypto_data(file_path, ticker)
+            crypto_data[ticker] = updated_df  # Add updated DataFrame to the dictionary
     return crypto_data
 
 # Function to filter data for the last 7 days
@@ -193,10 +272,10 @@ def filter_last_7_days(df):
 
 def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, holding_period):
     # Ensure the index is a DatetimeIndex
-    if data['timestamp'].dtype != 'datetime64[ns]':
-        data['timestamp'] = pd.to_datetime(data['timestamp'])
-    if not isinstance(data.index, pd.DatetimeIndex):
-        data.set_index('timestamp', inplace=True)
+    if data.index.dtype != 'datetime64[ns]':
+        data.index = pd.to_datetime(data.index)
+    # if not isinstance(data.index, pd.DatetimeIndex):
+    #     data.set_index('timestamp', inplace=True)
 
     # Check if the index is timezone-naive
     if data.index.tzinfo is None:
@@ -238,7 +317,7 @@ st.subheader("Crypto Strategy Signal Trigger for Short Term Trader")
 param_result_file = "param_result_with_TP_SL.csv"
 
 if os.path.exists(param_result_file):
-    crypto_data = load_or_fetch_data(crypto_symbols)
+    crypto_data = fetch_update_data()
     comparison_df=pd.read_csv(param_result_file,index_col=0)
     if crypto_data is not None:
         accuracy_results = []
@@ -247,63 +326,85 @@ if os.path.exists(param_result_file):
         # Iterate through symbols and calculate results
         for symbol, df in crypto_data.items():
             # Best accuracy parameters
-            #print(symbol)
             best_accuracy_row = best_df[best_df['Symbol'] == symbol]
-            #print(best_accuracy_row)
-            #print(best_accuracy_row['TP(%)'])
+            if best_accuracy_row.empty:
+                print(f"No matching row found for {symbol} in best_df.")
+                continue
+
+            # Extract parameters safely
             best_accuracy_params = {
                 'x_hours': best_accuracy_row['High_in_x_hours'].values[0],
                 'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'].values[0],
                 'holding_period': best_accuracy_row['Holding_Period'].values[0],
-                'TP(%)' : best_accuracy_row['TP(%)'].values[0],
-                'SL(%)' : best_accuracy_row['SL(%)'].values[0],
+                'TP(%)': best_accuracy_row['TP(%)'].values[0],
+                'SL(%)': best_accuracy_row['SL(%)'].values[0],
                 'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
                 'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'].values[0],
                 'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'].values[0],
                 'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'].values[0],
-                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL'] .values[0]    
+                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL'].values[0],
             }
-            last_trigger_date,last_trigger_price = find_last_trigger_date_and_price(
-                df.copy(), best_accuracy_params['x_hours'], best_accuracy_params['volume_increase_pct'], best_accuracy_params['holding_period']
+
+            # Ensure Num_Signals is valid
+            num_signals = best_accuracy_params['Num_Signals']
+            if num_signals == 0 or pd.isna(num_signals):
+                avg_total_return_no_tp_sl = None
+                avg_total_return_with_tp_sl = None
+            else:
+                avg_total_return_no_tp_sl = (
+                    best_accuracy_params['Total_Return_No_TP_SL'] / num_signals
+                )
+                avg_total_return_with_tp_sl = (
+                    best_accuracy_params['Total_Return_With_TP_SL'] / num_signals
+                )
+
+            # Find last trigger date and price
+            last_trigger_date, last_trigger_price = find_last_trigger_date_and_price(
+                df.copy(),
+                best_accuracy_params['x_hours'],
+                best_accuracy_params['volume_increase_pct'],
+                best_accuracy_params['holding_period'],
             )
-            #print(best_accuracy_params)
+
+            # Append results
             accuracy_results.append({
                 'Symbol': symbol,
                 'Last_Trigger_Date': last_trigger_date,
-                'Price' : last_trigger_price,
+                'Price': last_trigger_price,
                 'High_in_x_hours': best_accuracy_params['x_hours'],
                 'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
                 'Holding_hours': best_accuracy_params['holding_period'],
-                'TP(%)' : best_accuracy_params['TP(%)'],
-                'SL(%)' : best_accuracy_params['SL(%)'],
-                'Num_Signals': best_accuracy_params['Num_Signals'],
-                'Total_Return_No_TP_SL': best_accuracy_params['Total_Return_No_TP_SL'],
+                'TP(%)': best_accuracy_params['TP(%)'],
+                'SL(%)': best_accuracy_params['SL(%)'],
+                'Num_Signals': num_signals,
+                'AVG_Total_Return_No_TP_SL': avg_total_return_no_tp_sl,
                 'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
-                'Total_Return_With_TP_SL': best_accuracy_params['Total_Return_With_TP_SL'],
-                'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL']      
+                'AVG_Total_Return_With_TP_SL': avg_total_return_with_tp_sl,
+                'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
             })
 
+        # Create DataFrame
         accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
 
 
-        accuracy_df=accuracy_df[(accuracy_df['Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
+        accuracy_df=accuracy_df[(accuracy_df['AVG_Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
         current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
         # For Accuracy DataFrame
         accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','Price','TP(%)','SL(%)', 'Sell', 'Total_Return_No_TP_SL', 
-            'Accuracy_No_TP_SL','Total_Return_With_TP_SL', 
+            'Last_Trigger_Date', 'Holding_hours','Price','TP(%)','SL(%)', 'Sell', 'AVG_Total_Return_No_TP_SL', 
+            'Accuracy_No_TP_SL','AVG_Total_Return_With_TP_SL', 
             'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
             'Num_Signals'
         ]
 
         accuracy_df = accuracy_df[desired_columns].round(2)
         # Display the tables
-        st.dataframe(accuracy_df.sort_values('Last_Trigger_Date',ascending=False).head(40))
+        st.dataframe(accuracy_df.sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
         st.subheader(f"Sell Order")
-        st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False).head(40))
+        st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False))
 else:
     st.warning("Strategy results file not found.")
 

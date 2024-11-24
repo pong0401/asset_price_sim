@@ -1,0 +1,1 @@
+run init_download.py before put to git Hourly data 31 days 
