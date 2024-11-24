@@ -215,7 +215,7 @@ def update_crypto_data(file_path, ticker):
             last_date = last_date.tz_localize("UTC")
         print("last_date",last_date,"curent hour",current_hour)
         # Check if last_date is more than 1 hour behind current_hour
-        if (current_hour - last_date).total_seconds() > 3600:
+        if (current_time - last_date).total_seconds() > 3600:
             end_period = '1d'
         else:
             #print(f"Data for {ticker} is already up-to-date.")
@@ -377,9 +377,9 @@ if os.path.exists(param_result_file):
                 'TP(%)': best_accuracy_params['TP(%)'],
                 'SL(%)': best_accuracy_params['SL(%)'],
                 'Num_Signals': num_signals,
-                'AVG_Total_Return_No_TP_SL': avg_total_return_no_tp_sl,
+                'AVG_Return_No_TP_SL': avg_total_return_no_tp_sl,
                 'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
-                'AVG_Total_Return_With_TP_SL': avg_total_return_with_tp_sl,
+                'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
                 'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
             })
 
@@ -387,15 +387,15 @@ if os.path.exists(param_result_file):
         accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
 
 
-        accuracy_df=accuracy_df[(accuracy_df['AVG_Total_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
+        accuracy_df=accuracy_df[(accuracy_df['AVG_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
         current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
         # For Accuracy DataFrame
         accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','Price','TP(%)','SL(%)', 'Sell', 'AVG_Total_Return_No_TP_SL', 
-            'Accuracy_No_TP_SL','AVG_Total_Return_With_TP_SL', 
+            'Last_Trigger_Date', 'Holding_hours','Price','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
+            'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
             'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
             'Num_Signals'
         ]
