@@ -455,6 +455,18 @@ if st.button("Generate Price Simulation"):
             start_date=end_date
         )
 
+        # Get the last row from simulated_vg_pct
+        last_row = simulated_vg_pct.iloc[-1]
+
+        # Find the median value
+        last_value_50_index = last_row.median()
+
+        # Find the index of the value closest to the median
+        that_idx = (last_row - last_value_50_index).abs().idxmin()
+
+        # Calculate the 50% price percentile using the index
+        price_50 = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct[that_idx])
+
         # Calculate Portfolio Growth
 
         port_growth = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct).dropna().cumprod()
@@ -498,6 +510,14 @@ if st.button("Generate Price Simulation"):
             line=dict(color='blue')
         ))
 
+        fig.add_trace(go.Scatter(
+            x=percentile_extremes_df.index, 
+            y=price_50, 
+            mode='lines', 
+            name='Sample Price', 
+            line=dict(color='orange',dash='dash')
+        ))
+
         # Add percentile lines
         for col, color, dash in zip(
             ["50% Prob. Price Up", "25% Prob. Price Up", "50% Prob. Price Down", "25% Prob. Price Down"],
@@ -513,6 +533,17 @@ if st.button("Generate Price Simulation"):
                     line=dict(color=color, dash=dash)
                 ))
 
+        # fig.add_annotation(
+        #     x=simulated_vg_pct.index[-1],  # Position at the end of the x-axis
+        #     y=price_50,  # Position at the 50% price percentile value
+        #     text=f"50% Price Percentile: {price_50:.2f}",
+        #     showarrow=True,
+        #     arrowhead=2,
+        #     ax=50,  # Horizontal offset for arrow
+        #     ay=0,   # Vertical offset for arrow
+        #     font=dict(color="purple")
+        # )
+
         # Update layout
         fig.update_layout(
             title=f"{asset} Price Simulation with Percentiles",
@@ -520,9 +551,8 @@ if st.button("Generate Price Simulation"):
             yaxis_title="Price",
             legend_title="Legend",
             template="plotly_white",
-            height=600,  # Adjust height for better visualization
-            width=1000   # Adjust width for better visualization
+            height=600,
+            width=1000
         )
-
         # Display the chart in Streamlit
         st.plotly_chart(fig)
