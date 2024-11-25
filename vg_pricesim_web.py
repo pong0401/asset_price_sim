@@ -213,7 +213,7 @@ def update_crypto_data(file_path, ticker):
         # Ensure last_date is timezone-aware (convert to UTC)
         if last_date.tzinfo is None:
             last_date = last_date.tz_localize("UTC")
-        print("last_date",last_date,"curent hour",current_hour)
+        #print("last_date",last_date,"curent hour",current_hour)
         # Check if last_date is more than 1 hour behind current_hour
         if (current_time - last_date).total_seconds() > 3600:
             end_period = '1d'
@@ -339,9 +339,9 @@ if os.path.exists(param_result_file):
                 'TP(%)': best_accuracy_row['TP(%)'].values[0],
                 'SL(%)': best_accuracy_row['SL(%)'].values[0],
                 'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
-                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_No_TP_SL'].values[0],
+                'Total_Return_No_TP_SL': best_accuracy_row['AVG_Return_No_TP_SL'].values[0],
                 'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'].values[0],
-                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_With_TP_SL'].values[0],
+                'Total_Return_With_TP_SL': best_accuracy_row['AVG_Return_With_TP_SL'].values[0],
                 'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL'].values[0],
             }
 
