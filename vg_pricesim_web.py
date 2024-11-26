@@ -380,6 +380,7 @@ if os.path.exists(param_result_file):
                 'Symbol': symbol,
                 'Last_Trigger_Date': last_trigger_date,
                 'Price(THB)': last_trigger_price*usd_to_thb_rate,
+                'Price(USD)': last_trigger_price,
                 'High_in_x_hours': best_accuracy_params['x_hours'],
                 'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
                 'Holding_hours': best_accuracy_params['holding_period'],
@@ -403,7 +404,7 @@ if os.path.exists(param_result_file):
         accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','Price(THB)','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
+            'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
             'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
             'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
             'Num_Signals'
