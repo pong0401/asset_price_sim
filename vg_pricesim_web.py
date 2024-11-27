@@ -468,7 +468,7 @@ if os.path.exists(param_result_file):
 
         accuracy_df = accuracy_df[desired_columns].round(4)
         # Display the tables
-        st.dataframe(accuracy_df.sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
+        st.dataframe(accuracy_df[accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
         st.subheader(f"Sell Order")
         st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False))
 else:
