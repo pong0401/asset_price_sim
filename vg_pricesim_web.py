@@ -278,43 +278,43 @@ def filter_last_7_days(df):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df[df['timestamp'] >= (datetime.now(timezone.utc) - pd.Timedelta(days=7))]
 
-def find_last_trigger_date(data, x_days, volume_increase_pct, no_new_order_period=0):
-    # Ensure 'timestamp' is set as the index
-    if not data.index.name == 'timestamp':
-        data.set_index('timestamp', inplace=True)
+# def find_last_trigger_date(data, x_days, volume_increase_pct, no_new_order_period=0):
+#     # Ensure 'timestamp' is set as the index
+#     if not data.index.name == 'timestamp':
+#         data.set_index('timestamp', inplace=True)
 
-    # Ensure 'timestamp' index is timezone-naive for processing
-    if data.index.tzinfo is None:
-        data.index = data.index.tz_localize('UTC')  # Localize to UTC if naive
+#     # Ensure 'timestamp' index is timezone-naive for processing
+#     if data.index.tzinfo is None:
+#         data.index = data.index.tz_localize('UTC')  # Localize to UTC if naive
 
-    # Calculate X-day high (excluding the current day)
-    data['x_day_high'] = data['Close'].shift(1).rolling(window=x_days).max()
+#     # Calculate X-day high (excluding the current day)
+#     data['x_day_high'] = data['Close'].shift(1).rolling(window=x_days).max()
 
-    # Calculate volume percentage increase
-    data['volume_pct_increase'] = (data['Volume'] - data['Volume'].shift(1)) / data['Volume'].shift(1) * 100
+#     # Calculate volume percentage increase
+#     data['volume_pct_increase'] = (data['Volume'] - data['Volume'].shift(1)) / data['Volume'].shift(1) * 100
 
-    # Trigger condition: Price above X-day high and volume increased by X%
-    data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
+#     # Trigger condition: Price above X-day high and volume increased by X%
+#     data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
 
-    if no_new_order_period>0:
-    # Suppress triggers within the holding period
-        print(data.head())
-        print(data.info())
+#     if no_new_order_period>0:
+#     # Suppress triggers within the holding period
+#         print(data.head())
+#         print(data.info())
 
-        trigger_indices = data.index[data['trigger']].to_list()  # Indices of trigger events
-        for idx in trigger_indices:
-            start_idx = int(data.index.get_loc(idx))
-            end_idx = start_idx + no_new_order_period
-            data.iloc[start_idx + 1 : end_idx, data.columns.get_loc('trigger')] = False
+#         trigger_indices = data.index[data['trigger']].to_list()  # Indices of trigger events
+#         for idx in trigger_indices:
+#             start_idx = int(data.index.get_loc(idx))
+#             end_idx = start_idx + no_new_order_period
+#             data.iloc[start_idx + 1 : end_idx, data.columns.get_loc('trigger')] = False
 
-    # Find the last trigger date
-    last_trigger_date = data[data['trigger']].index.max() if data['trigger'].any() else None
+#     # Find the last trigger date
+#     last_trigger_date = data[data['trigger']].index.max() if data['trigger'].any() else None
 
-    # Convert to GMT+7 if a trigger exists
-    if last_trigger_date:
-        last_trigger_date = last_trigger_date.tz_convert('Asia/Bangkok')
+#     # Convert to GMT+7 if a trigger exists
+#     if last_trigger_date:
+#         last_trigger_date = last_trigger_date.tz_convert('Asia/Bangkok')
 
-    return last_trigger_date
+#     return last_trigger_date
 
 def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, no_new_order_period=0):
     # Ensure the index is a DatetimeIndex
@@ -453,7 +453,7 @@ if os.path.exists(param_result_file):
         accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
 
 
-        accuracy_df=accuracy_df[(accuracy_df['AVG_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
+        #accuracy_df=accuracy_df[(accuracy_df['AVG_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
         current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
         # For Accuracy DataFrame
@@ -467,6 +467,7 @@ if os.path.exists(param_result_file):
         ]
 
         accuracy_df = accuracy_df[desired_columns].round(4)
+        accuracy_df.to_csv('accuracy_df.csv')
         # Display the tables
         st.dataframe(accuracy_df[accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
         st.subheader(f"Sell Order")
