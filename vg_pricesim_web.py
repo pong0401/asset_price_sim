@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import ccxt
 import os
-import time
 from datetime import datetime, timezone, timedelta
 import yfinance as yf
 from scipy import optimize
@@ -11,6 +9,7 @@ import plotly.graph_objects as go
 import pytz
 import requests
 from config import *
+from pandas.tseries.offsets import DateOffset
 
 # Directory to save crypto data files
 data_dir = "crypto_data"
@@ -279,7 +278,45 @@ def filter_last_7_days(df):
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df[df['timestamp'] >= (datetime.now(timezone.utc) - pd.Timedelta(days=7))]
 
-def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, holding_period):
+def find_last_trigger_date(data, x_days, volume_increase_pct, no_new_order_period=0):
+    # Ensure 'timestamp' is set as the index
+    if not data.index.name == 'timestamp':
+        data.set_index('timestamp', inplace=True)
+
+    # Ensure 'timestamp' index is timezone-naive for processing
+    if data.index.tzinfo is None:
+        data.index = data.index.tz_localize('UTC')  # Localize to UTC if naive
+
+    # Calculate X-day high (excluding the current day)
+    data['x_day_high'] = data['Close'].shift(1).rolling(window=x_days).max()
+
+    # Calculate volume percentage increase
+    data['volume_pct_increase'] = (data['Volume'] - data['Volume'].shift(1)) / data['Volume'].shift(1) * 100
+
+    # Trigger condition: Price above X-day high and volume increased by X%
+    data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
+
+    if no_new_order_period>0:
+    # Suppress triggers within the holding period
+        print(data.head())
+        print(data.info())
+
+        trigger_indices = data.index[data['trigger']].to_list()  # Indices of trigger events
+        for idx in trigger_indices:
+            start_idx = int(data.index.get_loc(idx))
+            end_idx = start_idx + no_new_order_period
+            data.iloc[start_idx + 1 : end_idx, data.columns.get_loc('trigger')] = False
+
+    # Find the last trigger date
+    last_trigger_date = data[data['trigger']].index.max() if data['trigger'].any() else None
+
+    # Convert to GMT+7 if a trigger exists
+    if last_trigger_date:
+        last_trigger_date = last_trigger_date.tz_convert('Asia/Bangkok')
+
+    return last_trigger_date
+
+def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, no_new_order_period=0):
     # Ensure the index is a DatetimeIndex
     if data.index.dtype != 'datetime64[ns]':
         data.index = pd.to_datetime(data.index)
@@ -301,6 +338,24 @@ def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, holding_
 
     # Trigger condition: Price above X-day high and volume increased by X%
     data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
+    no_new_order_period = int(no_new_order_period)
+    if no_new_order_period>0:
+    # Suppress triggers within the holding period
+        # print(data.head())
+        # print(data.info())
+        
+        trigger_indices = data.index[data['trigger']].to_list()  # Indices of trigger events
+        for idx in trigger_indices:
+            suppression_end_time = idx + DateOffset(hours=no_new_order_period)
+
+            next_idx_position = data.index.searchsorted(idx) + 1
+            if next_idx_position < len(data.index):
+                next_idx = data.index[next_idx_position]
+            else:
+                next_idx = idx 
+
+            # Suppress subsequent triggers within the suppression range
+            data.loc[next_idx : suppression_end_time, 'trigger'] = False
 
     # Find the last trigger date and price
     if data['trigger'].any():
@@ -348,10 +403,10 @@ if os.path.exists(param_result_file):
                 'TP(%)': best_accuracy_row['TP(%)'].values[0],
                 'SL(%)': best_accuracy_row['SL(%)'].values[0],
                 'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
-                'Total_Return_No_TP_SL': best_accuracy_row['AVG_Return_No_TP_SL'].values[0],
-                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_No_TP_SL'].values[0],
-                'Total_Return_With_TP_SL': best_accuracy_row['AVG_Return_With_TP_SL'].values[0],
-                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_With_TP_SL'].values[0],
+                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_no_tp_sl'].values[0],
+                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_no_tp_sl'].values[0],
+                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_with_tp_sl'].values[0],
+                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_with_tp_sl'].values[0],
             }
 
             # Ensure Num_Signals is valid
@@ -391,6 +446,7 @@ if os.path.exists(param_result_file):
                 'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
                 'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
                 'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
+                'Weight':best_accuracy_row['Weight'].values[0]
             })
 
         # Create DataFrame
@@ -404,13 +460,13 @@ if os.path.exists(param_result_file):
         accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
+            'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
             'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
             'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
             'Num_Signals'
         ]
 
-        accuracy_df = accuracy_df[desired_columns].round(2)
+        accuracy_df = accuracy_df[desired_columns].round(4)
         # Display the tables
         st.dataframe(accuracy_df.sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
         st.subheader(f"Sell Order")
