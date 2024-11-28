@@ -451,14 +451,20 @@ if os.path.exists(param_result_file):
         accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
         # Reorder columns
         desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
+            'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','Amount_in_Baht','Amount_in_USD','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
             'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
             'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
             'Num_Signals'
         ]
 
-        accuracy_df = accuracy_df[desired_columns].round(4)
+        
         accuracy_df.to_csv('accuracy_df.csv')
+        total_portfolio_value = st.number_input("Enter Total Portfolio Value (in THB):", value=100000, step=1000)
+        accuracy_df['Amount_in_Baht'] = accuracy_df['Weight'] * total_portfolio_value
+        accuracy_df['Amount_in_USD'] = accuracy_df['Amount_in_Baht'] / usd_to_thb_rate
+
+        accuracy_df = accuracy_df[desired_columns].round(4)
+
         # Display the tables
         st.dataframe(accuracy_df[accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
         st.subheader(f"Sell Order")
