@@ -214,46 +214,37 @@ def update_crypto_data(file_path, ticker):
     # Get current time with timezone
     current_time = datetime.now(pytz.utc)
     current_hour = current_time.replace(minute=0, second=0, microsecond=0)
-    #start_date = current_time - timedelta(days=1)
+
+    # Determine the data fetch period
     if not data.empty:
         last_date = data.index.max()
 
         # Ensure last_date is timezone-aware (convert to UTC)
         if last_date.tzinfo is None:
             last_date = last_date.tz_localize("UTC")
-        #print("last_date",last_date,"curent hour",current_hour)
+
         # Check if last_date is more than 1 hour behind current_hour
         if (current_time - last_date).total_seconds() > 3600:
             end_period = '1d'
         else:
-            #print(f"Data for {ticker} is already up-to-date.")
             return data  # No update needed
     else:
-        # Default to fetching the last 30 days if the file is empty
-        #start_date = current_time - timedelta(days=30)
-        end_period='1mo'
+        end_period = '1mo'
 
-    # Convert start_date and current_time to 'YYYY-MM-DD' format
-    #start_date = start_date.strftime("%Y-%m-%d")
-    
-    #print(start_date,end_date)
     # Fetch updated data
     updated_data = yf.Ticker(ticker).history(period=end_period, interval="1h")
     if updated_data.empty:
         print(f"No new data found for {ticker}.")
         return data
-    # print("data----------")
-    # print(data)
-    # print("update data---")
-    # print(updated_data)
 
     updated_data = updated_data.rename_axis("timestamp").reset_index()
     updated_data = updated_data[["timestamp", "Open", "High", "Low", "Close", "Volume"]]
     updated_data["timestamp"] = pd.to_datetime(updated_data["timestamp"])
     updated_data.set_index("timestamp", inplace=True)
 
-    # Combine old and new data
-    combined_data = pd.concat([data, updated_data]).drop_duplicates().sort_index()
+    # Combine old and new data, replace duplicates with new data
+    combined_data = pd.concat([data, updated_data]).sort_index()
+    combined_data = combined_data[~combined_data.index.duplicated(keep="last")]
 
     # Save updated data back to the file
     combined_data.to_csv(file_path)
