@@ -373,7 +373,7 @@ def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, no_new_o
 # Streamlit App Layout
 st.title("Crypto Strategy Performance and Price Simulation")
 st.text("Analyze crypto strategies and simulate future price scenarios.")
-st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X วัน และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา และ จำนวนวันที่ Hold order z ชั่วโมง")
+st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X ชั่วโมง และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา และ จำนวนวันที่ Hold order z ชั่วโมง")
 st.text("และทำการ Monitor ราคา และ Volume ถ้าเข้าเงื่อนไขจากการ Backtest จะนำมา List ในตารางด้านล่าง โดยบอกวันที่มีสัญญาณ Trigger")
 st.text("ช่วง Bull run ตอนที่ราคา BTC ATH ,เหรียญอื่นจะขึ้นตาม ช่วงที่หมด Bull run ไม่ควรใช้ strategy นี้ และใช้เพื่อการศึกษาเท่านั้น")
 # Section 1: Strategy Analysis (Accuracy and Return Tables)
