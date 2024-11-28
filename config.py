@@ -10,7 +10,7 @@ crypto_symbols = [
     'ALGO-USD', 'VET-USD', 'ICP-USD', 'NEAR-USD', 'QNT-USD',
     'FTM-USD', 'EOS-USD', 'SAND-USD', 'AAVE-USD', 'MANA-USD',
     'THETA-USD', 'XTZ-USD', 'EGLD-USD', 'AXS-USD', 'CHZ-USD',
-    'RPL-USD', 'CAKE-USD', 'ZIL-USD','TON-USD',#'SUI-USD', $SUI-USD: possibly delisted; no price data found  (period=1d)
+    'RPL-USD', 'CAKE-USD', 'ZIL-USD','TON-USD','SUI-USD', #$SUI-USD: possibly delisted; no price data found  (period=1d)
     'XEC-USD', 'BAT-USD', 'CRV-USD', 'DYDX-USD', 'GALA-USD',
     'STX-USD', 'BAL-USD', 'BONK-USD', 'HBAR-USD','CRO-USD',
     'FLOKI-USD', 'LDO-USD','TIA-USD','SCRT-USD','KAVA-USD',
@@ -28,5 +28,5 @@ crypto_symbols = [
     'RIF-USD', 'DODO-USD',
     'ALPHA-USD', 'BEL-USD', 'TWT-USD',
     'UNI-USD', 'FLM-USD', 'SUSHI-USD',
-    'CVC-USD', 'SUN-USD',
+    'CVC-USD', 'SUN-USD'
 ]
