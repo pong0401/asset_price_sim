@@ -217,17 +217,19 @@ def update_crypto_data(file_path, ticker):
 
     # Determine the data fetch period
     if not data.empty:
-        last_date = data.index.max()
+        # last_date = data.index.max()
 
-        # Ensure last_date is timezone-aware (convert to UTC)
-        if last_date.tzinfo is None:
-            last_date = last_date.tz_localize("UTC")
+        # # Ensure last_date is timezone-aware (convert to UTC)
+        # if last_date.tzinfo is None:
+        #     last_date = last_date.tz_localize("UTC")
 
-        # Check if last_date is more than 1 hour behind current_hour
-        if (current_time - last_date).total_seconds() > 3600:
-            end_period = '1d'
-        else:
-            return data  # No update needed
+        # # Check if last_date is more than 1 hour behind current_hour
+        # if (current_time - last_date).total_seconds() > 3600:
+        #     end_period = '1d'
+        # else:
+        #     return data  # No update needed
+        #No need to check cause data is not complete , need to re update
+        end_period = '1d'
     else:
         end_period = '1mo'
 
