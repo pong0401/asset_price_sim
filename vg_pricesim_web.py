@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import requests
 import os
 from datetime import datetime, timezone, timedelta
 import yfinance as yf
 from scipy import optimize
 import plotly.graph_objects as go
 import pytz
-import requests
 from config import *
 from pandas.tseries.offsets import DateOffset
 
@@ -16,37 +16,6 @@ data_dir = "crypto_data"
 
 # Ensure the directory exists
 os.makedirs(data_dir, exist_ok=True)
-
-
-# # List of crypto symbols
-# crypto_symbols = [
-#     'BTC-USD', 'ETH-USD', 'BNB-USD', 'XRP-USD', 'DOGE-USD',
-#     'SOL-USD', 'ADA-USD', 'DOT-USD', 'LTC-USD', 'SHIB-USD',
-#     'TRX-USD', 'AVAX-USD', 'UNI-USD', 'LINK-USD', 'ATOM-USD',
-#     'ETC-USD', 'XLM-USD', 'BCH-USD', 'APT-USD', 'FIL-USD',
-#     'ALGO-USD', 'VET-USD', 'ICP-USD', 'NEAR-USD', 'QNT-USD',
-#     'FTM-USD', 'EOS-USD', 'SAND-USD', 'AAVE-USD', 'MANA-USD',
-#     'THETA-USD', 'XTZ-USD', 'EGLD-USD', 'AXS-USD', 'CHZ-USD',
-#     'RPL-USD', 'CAKE-USD', 'KAVA-USD', 'ZIL-USD',
-#     'XEC-USD', 'BAT-USD', 'CRV-USD', 'DYDX-USD', 'GALA-USD',
-#     'STX-USD', 'BAL-USD', 'BONK-USD',
-#     'FLOKI-USD', 'LDO-USD', 'KAS-USD',
-#     'INJ-USD', 'ARB-USD', 'OP-USD', 'WLD-USD',
-#      'LRC-USD', 'ENS-USD', 'FXS-USD', 'MINA-USD',
-#     'OSMO-USD', 'ROSE-USD', 'CELO-USD', '1INCH-USD', 'GNO-USD',
-#     'KNC-USD', 'ANKR-USD', 'COTI-USD', 'SXP-USD', 'YFI-USD',
-#      'SNX-USD', 'UMA-USD', 'ZRX-USD', 'BNT-USD',
-#     'REN-USD', 'CTSI-USD', 'DGB-USD', 'STORJ-USD', 'CVC-USD',
-#     'NKN-USD', 'SC-USD', 'ZEN-USD', 'KMD-USD', 'ARK-USD',
-#     'DENT-USD', 'FUN-USD', 'MTL-USD', 'STMX-USD', 'POWR-USD',
-#     'REQ-USD', 'BAND-USD', 'RLC-USD', 'MLN-USD', 'ANT-USD',
-#     'NMR-USD', 'LPT-USD', 'OXT-USD', 'DIA-USD', 'TRB-USD',
-#     'WNXM-USD', 'AVA-USD', 'LIT-USD', 'PHA-USD',
-#     'AKRO-USD', 'RIF-USD', 'DOCK-USD', 'DODO-USD',
-#     'ALPHA-USD', 'BEL-USD', 'TWT-USD', 'FOR-USD', 'FRONT-USD',
-#     'UNFI-USD', 'FLM-USD', 'SUSHI-USD', 'YFII-USD',
-#     'CREAM-USD', 'KP3R-USD', 'CVP-USD', 'SUN-USD'
-# ]
 
 def current_USDTHB():
     url="https://api.exchangerate-api.com/v4/latest/USD"
@@ -101,98 +70,6 @@ def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, nu
     pct_changes_df = pd.DataFrame(pct_changes, index=dates, columns=[f'Scenario_{i+1}' for i in range(num_scenarios)])
     return pct_changes_df
 # Function to fetch data and save to a file
-
-# def is_file_updated_recently(filename):
-#     """
-#     Check if the file contains data up to the last hour.
-#     """
-#     if not os.path.exists(filename):
-#         return False
-    
-#     # Load the file and parse timestamps
-#     df = pd.read_csv(filename)
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    
-#     # Ensure timestamps are timezone-aware (assume UTC for file data)
-#     if df['timestamp'].dt.tz is None:
-#         df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-    
-#     # Get the most recent timestamp in the file
-#     last_timestamp = df['timestamp'].max()
-    
-#     # Calculate the time threshold (one hour ago, in UTC)
-#     utc = pytz.UTC
-#     one_hour_ago = datetime.now(utc) - timedelta(hours=1)
-#     print(filename,last_timestamp,one_hour_ago,last_timestamp >= one_hour_ago)
-#     # Check if the most recent timestamp is within the last hour
-#     return last_timestamp >= one_hour_ago
-
-# # Function to fetch and save data
-# def fetch_and_save_data(symbols, limit=30):
-#     """
-#     Fetch historical data for multiple symbols, save to files, and return as a dictionary of DataFrames.
-#     """
-#     end_date = datetime.now()
-#     start_date = end_date - timedelta(days=limit)
-
-#     # Fetch data
-#     data = yf.download(
-#         tickers=symbols,
-#         start=start_date.strftime('%Y-%m-%d'),
-#         end=end_date.strftime('%Y-%m-%d'),
-#         interval='1h',
-#         group_by='ticker',
-#         auto_adjust=True,
-#         threads=True
-#     )
-
-#     crypto_data = {}
-
-#     # Handle the multi-index columns returned by yfinance
-#     if isinstance(data.columns, pd.MultiIndex):
-#         for symbol in symbols:
-#             if symbol in data.columns.levels[0]:  # Check if symbol has data
-#                 symbol_data = data[symbol].dropna().reset_index()
-#                 symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
-#                 crypto_data[symbol] = symbol_data
-#                 filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
-#                 symbol_data.to_csv(filename, index=False)
-#     else:
-#         # If data does not have MultiIndex, handle it as a single DataFrame
-#         for symbol in symbols:
-#             if not data.empty and symbol in data:
-#                 symbol_data = data[[col for col in data.columns if col.startswith(symbol)]].dropna().reset_index()
-#                 symbol_data.columns = ['timestamp'] + list(symbol_data.columns[1:])
-#                 crypto_data[symbol] = symbol_data
-#                 filename = f"{data_dir}/{symbol.replace('-', '_')}.csv"
-#                 symbol_data.to_csv(filename, index=False)
-    
-#     return crypto_data
-
-# # Load or fetch data
-# def load_or_fetch_data(symbols):
-#     """
-#     Load data from existing files or fetch new data for outdated files.
-#     """
-#     crypto_data = {}
-#     outdated_symbols = []
-
-#     # Check files
-#     for symbol in symbols:
-#         filename = os.path.join(data_dir, f"{symbol.replace('-', '_')}.csv")
-#         if is_file_updated_recently(filename):
-#             crypto_data[symbol] = pd.read_csv(filename)  # Load current file
-#         else:
-#             outdated_symbols.append(symbol)  # Mark as outdated
-
-#     # Fetch data for outdated symbols
-#     if outdated_symbols:
-#         print(f"Fetching data for outdated symbols: {', '.join(outdated_symbols)}")
-#         fetched_data = fetch_and_save_data(outdated_symbols)
-#         for symbol, data in fetched_data.items():
-#             crypto_data[symbol] = data
-
-#     return crypto_data
 
 def update_crypto_data(file_path, ticker):
     """
@@ -256,58 +133,32 @@ def update_crypto_data(file_path, ticker):
 
 
 def fetch_update_data():
-    crypto_data={}
-    for file_name in os.listdir(data_dir):
-        if file_name.endswith(".csv"):
-            ticker = file_name.replace("_", "-").replace(".csv", "")  # Convert file name to ticker
-            file_path = os.path.join(data_dir, file_name)
-            #print(f"Processing {file_name}...")
-            updated_df = update_crypto_data(file_path, ticker)
-            crypto_data[ticker] = updated_df  # Add updated DataFrame to the dictionary
+    
+    crypto_data = {}
+    file_list = [f for f in os.listdir(data_dir) if f.endswith(".csv")]
+    total_files = len(file_list)
+
+    # Add a progress bar
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    for i, file_name in enumerate(file_list):
+        ticker = file_name.replace("_", "-").replace(".csv", "")  # Convert file name to ticker
+        file_path = os.path.join(data_dir, file_name)
+        status_text.write(f"Processing {file_name} ({i + 1}/{total_files})...")
+
+        # Update progress bar
+        progress_bar.progress((i + 1) / total_files)
+
+        # Update crypto data
+        updated_df = update_crypto_data(file_path, ticker)
+        crypto_data[ticker] = updated_df  # Add updated DataFrame to the dictionary
+
+    # Clear the progress and status
+    progress_bar.empty()
+    
+    st.session_state.updated_data=True  # Set a default value
     return crypto_data
-
-# Function to filter data for the last 7 days
-def filter_last_7_days(df):
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    return df[df['timestamp'] >= (datetime.now(timezone.utc) - pd.Timedelta(days=7))]
-
-# def find_last_trigger_date(data, x_days, volume_increase_pct, no_new_order_period=0):
-#     # Ensure 'timestamp' is set as the index
-#     if not data.index.name == 'timestamp':
-#         data.set_index('timestamp', inplace=True)
-
-#     # Ensure 'timestamp' index is timezone-naive for processing
-#     if data.index.tzinfo is None:
-#         data.index = data.index.tz_localize('UTC')  # Localize to UTC if naive
-
-#     # Calculate X-day high (excluding the current day)
-#     data['x_day_high'] = data['Close'].shift(1).rolling(window=x_days).max()
-
-#     # Calculate volume percentage increase
-#     data['volume_pct_increase'] = (data['Volume'] - data['Volume'].shift(1)) / data['Volume'].shift(1) * 100
-
-#     # Trigger condition: Price above X-day high and volume increased by X%
-#     data['trigger'] = (data['Close'] > data['x_day_high']) & (data['volume_pct_increase'] > volume_increase_pct)
-
-#     if no_new_order_period>0:
-#     # Suppress triggers within the holding period
-#         print(data.head())
-#         print(data.info())
-
-#         trigger_indices = data.index[data['trigger']].to_list()  # Indices of trigger events
-#         for idx in trigger_indices:
-#             start_idx = int(data.index.get_loc(idx))
-#             end_idx = start_idx + no_new_order_period
-#             data.iloc[start_idx + 1 : end_idx, data.columns.get_loc('trigger')] = False
-
-#     # Find the last trigger date
-#     last_trigger_date = data[data['trigger']].index.max() if data['trigger'].any() else None
-
-#     # Convert to GMT+7 if a trigger exists
-#     if last_trigger_date:
-#         last_trigger_date = last_trigger_date.tz_convert('Asia/Bangkok')
-
-#     return last_trigger_date
 
 def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, no_new_order_period=0):
     # Ensure the index is a DatetimeIndex
@@ -363,254 +214,267 @@ def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, no_new_o
 
 
 
-# Streamlit App Layout
+# Streamlit App Layout with Navigation
 st.title("Crypto Strategy Performance and Price Simulation")
-st.text("Analyze crypto strategies and simulate future price scenarios.")
-st.text("Backtest strategy ด้วย ราคาทำ new high ในช่วง X ชั่วโมง และ Volume ขึ้น Y% ข้อมูล 1 ปีที่ผ่านมา และ จำนวนวันที่ Hold order z ชั่วโมง")
-st.text("และทำการ Monitor ราคา และ Volume ถ้าเข้าเงื่อนไขจากการ Backtest จะนำมา List ในตารางด้านล่าง โดยบอกวันที่มีสัญญาณ Trigger")
-st.text("ช่วง Bull run ตอนที่ราคา BTC ATH ,เหรียญอื่นจะขึ้นตาม ช่วงที่หมด Bull run ไม่ควรใช้ strategy นี้ และใช้เพื่อการศึกษาเท่านั้น")
-# Section 1: Strategy Analysis (Accuracy and Return Tables)
+st.text("Analyze crypto strategies")
 
-st.subheader("Crypto Strategy Signal Trigger for Short Term Trader")
-param_result_file = "param_result_with_TP_SL.csv"
-usd_to_thb_rate=current_USDTHB()
-if os.path.exists(param_result_file):
-    crypto_data = fetch_update_data()
-    comparison_df=pd.read_csv(param_result_file,index_col=0)
-    if crypto_data is not None:
-        accuracy_results = []
-        #return_results = []
-        best_df=comparison_df.copy()
-        # Iterate through symbols and calculate results
-        for symbol, df in crypto_data.items():
-            # Best accuracy parameters
-            best_accuracy_row = best_df[best_df['Symbol'] == symbol]
-            if best_accuracy_row.empty:
-                print(f"No matching row found for {symbol} in best_df.")
-                continue
+# Sidebar Navigation
+navigation = st.sidebar.radio("Select Page", ["Crypto Alert Signal", "Price Simulation"])
 
-            # Extract parameters safely
-            best_accuracy_params = {
-                'x_hours': best_accuracy_row['High_in_x_hours'].values[0],
-                'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'].values[0],
-                'holding_period': best_accuracy_row['Holding_Period'].values[0],
-                'TP(%)': best_accuracy_row['TP(%)'].values[0],
-                'SL(%)': best_accuracy_row['SL(%)'].values[0],
-                'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
-                'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_no_tp_sl'].values[0],
-                'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_no_tp_sl'].values[0],
-                'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_with_tp_sl'].values[0],
-                'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_with_tp_sl'].values[0],
-            }
+# Current USD/THB Exchange Rate
+usd_to_thb_rate = current_USDTHB()
 
-            # Ensure Num_Signals is valid
-            num_signals = best_accuracy_params['Num_Signals']
-            if num_signals == 0 or pd.isna(num_signals):
-                avg_total_return_no_tp_sl = None
-                avg_total_return_with_tp_sl = None
-            else:
-                avg_total_return_no_tp_sl = (
-                    best_accuracy_params['Total_Return_No_TP_SL'] / num_signals
-                )
-                avg_total_return_with_tp_sl = (
-                    best_accuracy_params['Total_Return_With_TP_SL'] / num_signals
-                )
+# Navigation: Crypto Alert Signal
+if navigation == "Crypto Alert Signal":
+    st.subheader("Crypto Strategy Signal Trigger for Short Term Trader")
+    param_result_file = "param_result_with_TP_SL.csv"
+    #accuracy_df.to_csv('accuracy_df.csv')
+    if "total_portfolio" not in st.session_state:
+        st.session_state.total_portfolio = 100000  # Set a default value
 
-            # Find last trigger date and price
-            last_trigger_date, last_trigger_price = find_last_trigger_date_and_price(
-                df.copy(),
-                best_accuracy_params['x_hours'],
-                best_accuracy_params['volume_increase_pct'],
-                best_accuracy_params['holding_period'],
+    st.session_state.total_portfolio = st.number_input(
+        "Enter Total Portfolio Value (in THB):", 
+        value=st.session_state.total_portfolio,  # Initialize with session state value
+        step=1000, 
+        key="total_portfolio_input"
+    )
+    if "updated_data" not in st.session_state: 
+        if os.path.exists(param_result_file):
+            crypto_data = fetch_update_data()
+            comparison_df = pd.read_csv(param_result_file, index_col=0)
+            if crypto_data is not None:
+                accuracy_results = []
+                best_df = comparison_df.copy()
+
+                # Iterate through symbols and calculate results
+                for symbol, df in crypto_data.items():
+                    best_accuracy_row = best_df[best_df['Symbol'] == symbol]
+                    if best_accuracy_row.empty:
+                        continue
+
+                    # Extract parameters safely
+                    best_accuracy_params = {
+                        'x_hours': best_accuracy_row['High_in_x_hours'].values[0],
+                        'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'].values[0],
+                        'holding_period': best_accuracy_row['Holding_Period'].values[0],
+                        'TP(%)': best_accuracy_row['TP(%)'].values[0],
+                        'SL(%)': best_accuracy_row['SL(%)'].values[0],
+                        'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
+                        'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_no_tp_sl'].values[0],
+                        'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_no_tp_sl'].values[0],
+                        'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_with_tp_sl'].values[0],
+                        'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_with_tp_sl'].values[0],
+                    }
+
+                    # Ensure Num_Signals is valid
+                    num_signals = best_accuracy_params['Num_Signals']
+                    if num_signals == 0 or pd.isna(num_signals):
+                        avg_total_return_no_tp_sl = None
+                        avg_total_return_with_tp_sl = None
+                    else:
+                        avg_total_return_no_tp_sl = (
+                            best_accuracy_params['Total_Return_No_TP_SL'] / num_signals
+                        )
+                        avg_total_return_with_tp_sl = (
+                            best_accuracy_params['Total_Return_With_TP_SL'] / num_signals
+                        )
+
+                    # Find last trigger date and price
+                    last_trigger_date, last_trigger_price = find_last_trigger_date_and_price(
+                        df.copy(),
+                        best_accuracy_params['x_hours'],
+                        best_accuracy_params['volume_increase_pct'],
+                        best_accuracy_params['holding_period'],
+                    )
+
+                    # Append results
+                    accuracy_results.append({
+                        'Symbol': symbol,
+                        'Last_Trigger_Date': last_trigger_date,
+                        'Price(THB)': last_trigger_price*usd_to_thb_rate,
+                        'Price(USD)': last_trigger_price,
+                        'High_in_x_hours': best_accuracy_params['x_hours'],
+                        'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
+                        'Holding_hours': best_accuracy_params['holding_period'],
+                        'TP(%)': best_accuracy_params['TP(%)'],
+                        'SL(%)': best_accuracy_params['SL(%)'],
+                        'Num_Signals': num_signals,
+                        'AVG_Return_No_TP_SL': avg_total_return_no_tp_sl,
+                        'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
+                        'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
+                        'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
+                        'Weight':best_accuracy_row['Weight'].values[0]
+                    })
+
+                # Create DataFrame
+                accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
+
+                current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
+
+                # For Accuracy DataFrame
+                accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
+                # Reorder columns
+
+            st.session_state.accuracy_df=accuracy_df
+        else:
+            st.warning("Strategy results file not found.")
+    
+    desired_columns = [
+    'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','Amount_in_Baht','Amount_in_USD','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
+    'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
+    'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
+    'Num_Signals'
+    ]
+    st.session_state.accuracy_df['Amount_in_Baht'] = st.session_state.accuracy_df['Weight'] * st.session_state.total_portfolio 
+    st.session_state.accuracy_df['Amount_in_USD'] = st.session_state.accuracy_df['Amount_in_Baht'] / usd_to_thb_rate
+    st.session_state.accuracy_df = st.session_state.accuracy_df[desired_columns].round(4)
+
+    #st.text("Start Port Value:",st.session_state.total_portfolio,"Baht")
+    st.write(f"Start Port Value: {st.session_state.total_portfolio} baht")
+    # Display the tables
+    st.subheader(f"Buy Order")
+    st.dataframe(st.session_state.accuracy_df[st.session_state.accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
+    st.subheader(f"Sell Order")
+    st.dataframe(st.session_state.accuracy_df[st.session_state.accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False))
+
+# Navigation: Price Simulation
+elif navigation == "Price Simulation":
+    st.subheader("Variance Gamma Price Simulation for Middle Term Trader")
+
+    asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
+    num_scenarios = st.slider("Number of Scenarios:", 100, 5000, 1000)
+    steps = st.slider("Simulation Days:", 30, 365, 365)
+
+    if st.button("Generate Price Simulation"):
+        end_date = pd.Timestamp.now().strftime('%Y-%m-%d')
+        start_date = (pd.Timestamp.now() - pd.DateOffset(years=4)).strftime('%Y-%m-%d')
+        price_df = yf.download(asset, start=start_date, end=end_date,progress=False)
+        if price_df.empty:
+            st.warning(f"No data found for {asset}. Please check if the symbol is valid on Yahoo Finance.")
+        else:
+            #print(price_df.info())
+            price_df.columns = [col[0] for col in price_df.columns]
+
+            #price_df = price_df['Close']
+            #print(price_df.head())
+            log_return_df = log_return(price_df.dropna())
+            #print(log_return_df)
+            # Fit Variance Gamma
+            log_returns = log_return_df.dropna().values.reshape(-1)
+
+            (c_fit, sigma_fit, theta_fit, nu_fit) = fit_ml(log_returns, maxiter=1000)
+
+            # Simulate Scenarios
+            simulated_vg_pct = simulate_vg_scenarios_pct(
+                S0=price_df['Close'].iloc[-1],
+                c_fit=c_fit,
+                sigma_fit=sigma_fit,
+                theta_fit=theta_fit,
+                nu_fit=nu_fit,
+                steps=steps,
+                num_scenarios=num_scenarios,
+                start_date=end_date
             )
 
-            # Append results
-            accuracy_results.append({
-                'Symbol': symbol,
-                'Last_Trigger_Date': last_trigger_date,
-                'Price(THB)': last_trigger_price*usd_to_thb_rate,
-                'Price(USD)': last_trigger_price,
-                'High_in_x_hours': best_accuracy_params['x_hours'],
-                'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
-                'Holding_hours': best_accuracy_params['holding_period'],
-                'TP(%)': best_accuracy_params['TP(%)'],
-                'SL(%)': best_accuracy_params['SL(%)'],
-                'Num_Signals': num_signals,
-                'AVG_Return_No_TP_SL': avg_total_return_no_tp_sl,
-                'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
-                'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
-                'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
-                'Weight':best_accuracy_row['Weight'].values[0]
-            })
+            # Get the last row from simulated_vg_pct
+            last_row = simulated_vg_pct.iloc[-1]
 
-        # Create DataFrame
-        accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
+            # Find the median value
+            last_value_50_index = last_row.median()
 
+            # Find the index of the value closest to the median
+            that_idx = (last_row - last_value_50_index).abs().idxmin()
 
-        #accuracy_df=accuracy_df[(accuracy_df['AVG_Return_No_TP_SL']>0) & (accuracy_df['Accuracy_No_TP_SL']>50)]# & (accuracy_df['Accuracy_No_TP_SL']<accuracy_df['Accuracy_With_TP_SL'])].set_index('Symbol').round(2)
-        current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
+            # Calculate the 50% price percentile using the index
+            price_50 = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct[that_idx])
 
-        # For Accuracy DataFrame
-        accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
-        # Reorder columns
-        desired_columns = [
-            'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','Amount_in_Baht','Amount_in_USD','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
-            'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
-            'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
-            'Num_Signals'
-        ]
+            # Calculate Portfolio Growth
 
-        
-        accuracy_df.to_csv('accuracy_df.csv')
-        total_portfolio_value = st.number_input("Enter Total Portfolio Value (in THB):", value=100000, step=1000)
-        accuracy_df['Amount_in_Baht'] = accuracy_df['Weight'] * total_portfolio_value
-        accuracy_df['Amount_in_USD'] = accuracy_df['Amount_in_Baht'] / usd_to_thb_rate
+            port_growth = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct).dropna().cumprod()
 
-        accuracy_df = accuracy_df[desired_columns].round(4)
+            # Calculate Percentiles
+            cumulative_max = port_growth.cummax()
+            cumulative_min = port_growth.cummin()
+            monthly_cum_max = cumulative_max.resample('ME').last()
+            monthly_cum_min = cumulative_min.resample('ME').last()
 
-        # Display the tables
-        st.dataframe(accuracy_df[accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
-        st.subheader(f"Sell Order")
-        st.dataframe(accuracy_df[accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False))
-else:
-    st.warning("Strategy results file not found.")
-
-# Section 2: Variance Gamma Price Simulation
-st.subheader("Variance Gamma Price Simulation for Middle term trader")
-
-asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
-num_scenarios = st.slider("Number of Scenarios:", 100, 5000, 1000)
-steps = st.slider("Simulation Days:", 30, 365, 365)
-
-if st.button("Generate Price Simulation"):
-    end_date = pd.Timestamp.now().strftime('%Y-%m-%d')
-    start_date = (pd.Timestamp.now() - pd.DateOffset(years=4)).strftime('%Y-%m-%d')
-    price_df = yf.download(asset, start=start_date, end=end_date,progress=False)
-    if price_df.empty:
-        st.warning(f"No data found for {asset}. Please check if the symbol is valid on Yahoo Finance.")
-    else:
-        #print(price_df.info())
-        price_df.columns = [col[0] for col in price_df.columns]
-
-        #price_df = price_df['Close']
-        #print(price_df.head())
-        log_return_df = log_return(price_df.dropna())
-        #print(log_return_df)
-        # Fit Variance Gamma
-        log_returns = log_return_df.dropna().values.reshape(-1)
-
-        (c_fit, sigma_fit, theta_fit, nu_fit) = fit_ml(log_returns, maxiter=1000)
-
-        # Simulate Scenarios
-        simulated_vg_pct = simulate_vg_scenarios_pct(
-            S0=price_df['Close'].iloc[-1],
-            c_fit=c_fit,
-            sigma_fit=sigma_fit,
-            theta_fit=theta_fit,
-            nu_fit=nu_fit,
-            steps=steps,
-            num_scenarios=num_scenarios,
-            start_date=end_date
-        )
-
-        # Get the last row from simulated_vg_pct
-        last_row = simulated_vg_pct.iloc[-1]
-
-        # Find the median value
-        last_value_50_index = last_row.median()
-
-        # Find the index of the value closest to the median
-        that_idx = (last_row - last_value_50_index).abs().idxmin()
-
-        # Calculate the 50% price percentile using the index
-        price_50 = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct[that_idx])
-
-        # Calculate Portfolio Growth
-
-        port_growth = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct).dropna().cumprod()
-
-        # Calculate Percentiles
-        cumulative_max = port_growth.cummax()
-        cumulative_min = port_growth.cummin()
-        monthly_cum_max = cumulative_max.resample('ME').last()
-        monthly_cum_min = cumulative_min.resample('ME').last()
-
-        monthly_percentile_extremes = {}
-        for month in monthly_cum_max.index:
-            median_max = monthly_cum_max.loc[month].median()
-            percentile_75_max = monthly_cum_max.loc[month].quantile(0.75)
-            median_min = monthly_cum_min.loc[month].median()
-            percentile_25_min = monthly_cum_min.loc[month].quantile(0.25)
-            monthly_percentile_extremes[month] = {
-                "50% Prob. Price Up": median_max,
-                "25% Prob. Price Up": percentile_75_max,
-                "50% Prob. Price Down": median_min,
-                "25% Prob. Price Down": percentile_25_min
-            }
-        percentile_extremes_df = pd.DataFrame(monthly_percentile_extremes).T
+            monthly_percentile_extremes = {}
+            for month in monthly_cum_max.index:
+                median_max = monthly_cum_max.loc[month].median()
+                percentile_75_max = monthly_cum_max.loc[month].quantile(0.75)
+                median_min = monthly_cum_min.loc[month].median()
+                percentile_25_min = monthly_cum_min.loc[month].quantile(0.25)
+                monthly_percentile_extremes[month] = {
+                    "50% Prob. Price Up": median_max,
+                    "25% Prob. Price Up": percentile_75_max,
+                    "50% Prob. Price Down": median_min,
+                    "25% Prob. Price Down": percentile_25_min
+                }
+            percentile_extremes_df = pd.DataFrame(monthly_percentile_extremes).T
 
 
-        fig = go.Figure()
-        # Get the latest date in the dataset
-        latest_date = price_df.index.max()
+            fig = go.Figure()
+            # Get the latest date in the dataset
+            latest_date = price_df.index.max()
 
-        # Calculate the date one year ago
-        one_year_ago = latest_date - timedelta(days=720)
+            # Calculate the date one year ago
+            one_year_ago = latest_date - timedelta(days=720)
 
-        # Filter for data within the last year
-        price_one_year = price_df[price_df.index >= one_year_ago]
-        # Add historical data
-        fig.add_trace(go.Scatter(
-            x=price_one_year.index, 
-            y=price_one_year['Close'], 
-            mode='lines', 
-            name='Historical Price', 
-            line=dict(color='blue')
-        ))
+            # Filter for data within the last year
+            price_one_year = price_df[price_df.index >= one_year_ago]
+            # Add historical data
+            fig.add_trace(go.Scatter(
+                x=price_one_year.index, 
+                y=price_one_year['Close'], 
+                mode='lines', 
+                name='Historical Price', 
+                line=dict(color='blue')
+            ))
 
-        fig.add_trace(go.Scatter(
-            x=percentile_extremes_df.index, 
-            y=price_50, 
-            mode='lines', 
-            name='Sample Price', 
-            line=dict(color='orange',dash='dash')
-        ))
+            fig.add_trace(go.Scatter(
+                x=percentile_extremes_df.index, 
+                y=price_50, 
+                mode='lines', 
+                name='Sample Price', 
+                line=dict(color='orange',dash='dash')
+            ))
 
-        # Add percentile lines
-        for col, color, dash in zip(
-            ["50% Prob. Price Up", "25% Prob. Price Up", "50% Prob. Price Down", "25% Prob. Price Down"],
-            ['green', 'lightgreen', 'red', 'lightcoral'],
-            [None, 'dash', None, 'dash']
-        ):
-            if col in percentile_extremes_df.columns:  # Ensure the column exists
-                fig.add_trace(go.Scatter(
-                    x=percentile_extremes_df.index, 
-                    y=percentile_extremes_df[col], 
-                    mode='lines', 
-                    name=col, 
-                    line=dict(color=color, dash=dash)
-                ))
+            # Add percentile lines
+            for col, color, dash in zip(
+                ["50% Prob. Price Up", "25% Prob. Price Up", "50% Prob. Price Down", "25% Prob. Price Down"],
+                ['green', 'lightgreen', 'red', 'lightcoral'],
+                [None, 'dash', None, 'dash']
+            ):
+                if col in percentile_extremes_df.columns:  # Ensure the column exists
+                    fig.add_trace(go.Scatter(
+                        x=percentile_extremes_df.index, 
+                        y=percentile_extremes_df[col], 
+                        mode='lines', 
+                        name=col, 
+                        line=dict(color=color, dash=dash)
+                    ))
 
-        # fig.add_annotation(
-        #     x=simulated_vg_pct.index[-1],  # Position at the end of the x-axis
-        #     y=price_50,  # Position at the 50% price percentile value
-        #     text=f"50% Price Percentile: {price_50:.2f}",
-        #     showarrow=True,
-        #     arrowhead=2,
-        #     ax=50,  # Horizontal offset for arrow
-        #     ay=0,   # Vertical offset for arrow
-        #     font=dict(color="purple")
-        # )
+            # fig.add_annotation(
+            #     x=simulated_vg_pct.index[-1],  # Position at the end of the x-axis
+            #     y=price_50,  # Position at the 50% price percentile value
+            #     text=f"50% Price Percentile: {price_50:.2f}",
+            #     showarrow=True,
+            #     arrowhead=2,
+            #     ax=50,  # Horizontal offset for arrow
+            #     ay=0,   # Vertical offset for arrow
+            #     font=dict(color="purple")
+            # )
 
-        # Update layout
-        fig.update_layout(
-            title=f"{asset} Price Simulation with Percentiles",
-            xaxis_title="Date",
-            yaxis_title="Price",
-            legend_title="Legend",
-            template="plotly_white",
-            height=600,
-            width=1000
-        )
-        # Display the chart in Streamlit
-        st.plotly_chart(fig)
+            # Update layout
+            fig.update_layout(
+                title=f"{asset} Price Simulation with Percentiles",
+                xaxis_title="Date",
+                yaxis_title="Price",
+                legend_title="Legend",
+                template="plotly_white",
+                height=600,
+                width=1000
+            )
+            # Display the chart in Streamlit
+            st.plotly_chart(fig)
+
