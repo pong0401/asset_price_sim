@@ -229,7 +229,7 @@ def update_crypto_data(file_path, ticker):
         # else:
         #     return data  # No update needed
         #No need to check cause data is not complete , need to re update
-        end_period = '1d'
+        end_period = '5d'
     else:
         end_period = '1mo'
 
