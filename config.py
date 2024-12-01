@@ -24,7 +24,7 @@ crypto_symbols = [
     'DENT-USD', 'FUN-USD', 'MTL-USD', 'STMX-USD', 'POWR-USD',
     'REQ-USD', 'BAND-USD', 'RLC-USD','MKR-USD','FLOW-USD',
     'NMR-USD', 'LPT-USD', 'OXT-USD', 'TRB-USD','AR-USD',
-    'AVA-USD', 'PHB-USD','APE-USD','VELO-USD','MOVR-USD',
+    'AVA-USD', 'PHB-USD','APE-USD','MOVR-USD',
     'RIF-USD', 'DODO-USD',
     'ALPHA-USD', 'BEL-USD', 'TWT-USD',
     'UNI7083-USD', 'FLM-USD', 'SUSHI-USD',
