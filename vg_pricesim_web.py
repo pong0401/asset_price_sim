@@ -345,29 +345,25 @@ elif navigation == "Price Simulation":
     st.subheader("Variance Gamma Price Simulation for Middle Term Trader")
 
     asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
-    num_scenarios = st.slider("Number of Scenarios:", 100, 5000, 1000)
+    num_scenarios = st.slider("Number of Scenarios:", 100, 10000, 1000)
     steps = st.slider("Simulation Days:", 90, 1460, 365)
+
+    st.subheader("Set Filter for Asset Price Ranges")
+    price_min_filter = st.number_input("1 year Minimum Price :", value=0.0)
+    price_max_filter = st.number_input("1 year Maximum Price :", value=1000000.0)
 
     if st.button("Generate Price Simulation"):
         end_date = pd.Timestamp.now().strftime('%Y-%m-%d')
         start_date = (pd.Timestamp.now() - pd.DateOffset(years=4)).strftime('%Y-%m-%d')
-        price_df = yf.download(asset, start=start_date, end=end_date,progress=False)
+        price_df = yf.download(asset, start=start_date, end=end_date, progress=False)
         if price_df.empty:
             st.warning(f"No data found for {asset}. Please check if the symbol is valid on Yahoo Finance.")
         else:
-            #print(price_df.info())
-            price_df.columns = [col[0] for col in price_df.columns]
-
-            #price_df = price_df['Close']
-            #print(price_df.head())
             log_return_df = log_return(price_df.dropna())
-            #print(log_return_df)
-            # Fit Variance Gamma
             log_returns = log_return_df.dropna().values.reshape(-1)
 
             (c_fit, sigma_fit, theta_fit, nu_fit) = fit_ml(log_returns, maxiter=1000)
 
-            # Simulate Scenarios
             simulated_vg_pct = simulate_vg_scenarios_pct(
                 S0=price_df['Close'].iloc[-1],
                 c_fit=c_fit,
@@ -380,8 +376,20 @@ elif navigation == "Price Simulation":
             )
 
             # Calculate cumulative product for each scenario
-            simulated_prices = (1 + simulated_vg_pct).cumprod() * price_df.Close.iloc[-1]
+            last_asset_price=price_df['Close'].iloc[-1].values[0]
+            simulated_prices = (1 + simulated_vg_pct).cumprod() * last_asset_price
 
+            # Calculate min and max prices for the first year
+            first_year_prices = simulated_prices.iloc[:365]  # Approx. 1 year (365 trading days)
+            yearly_min_prices = first_year_prices.min()
+            yearly_max_prices = first_year_prices.max()
+            if price_max_filter>yearly_max_prices.max():
+                price_max_filter=yearly_max_prices.quantile(0.77)
+            #print(yearly_min_prices)
+            # Filter scenarios based on user input for price range
+            valid_scenarios = (yearly_min_prices >= price_min_filter) & (yearly_max_prices <= price_max_filter)
+            simulated_prices = simulated_prices.loc[:, valid_scenarios]
+            #print(len(valid_scenarios),simulated_prices.shape)
             # Get the last row of simulated prices
             last_prices = simulated_prices.iloc[-1]
 
@@ -395,16 +403,10 @@ elif navigation == "Price Simulation":
                 closest_idx = (last_prices - percentile_value).abs().idxmin()  # Find the closest scenario
                 selected_scenarios[f"{int(p * 100)}th Percentile"] = simulated_prices[closest_idx]
 
-
             # Define time horizons based on the simulation steps
             max_horizon = steps  # Maximum prediction horizon based on the slider
             horizon_step = 90    # Define step interval for horizons (e.g., 90 days)
             time_horizons = list(range(horizon_step, max_horizon + 1, horizon_step))
-
-            # Define price range based on last price
-            last_price = price_df['Close'].iloc[-1]
-            price_min = last_price * 0.5  # -50%
-            price_max = last_price * 2.0  # +200%
 
             # Define price step size dynamically based on the price magnitude
 
@@ -414,9 +416,8 @@ elif navigation == "Price Simulation":
                 magnitude = math.floor(math.log10(price))
                 if magnitude < 0:
                     return 10 ** magnitude  # For fractional prices, step size is 10^magnitude
-                return 10 ** (magnitude - 1)  # For whole prices, step size is 10^(magnitude-1)
+                return 10 ** (magnitude-1)  # For whole prices, step size is 10^(magnitude-1)
 
-            # Format the probability table for display
             def format_for_streamlit(df, price_tiers):
                 # Sort the DataFrame by numeric index first
                 df = df.sort_index(ascending=False)
@@ -426,16 +427,16 @@ elif navigation == "Price Simulation":
                 df.index = formatted_index  # Replace the index with formatted strings
 
                 # Format the percent values (table values) with 2 decimal places
-                df = df.applymap(lambda x: f"{x:.2f}")
+                df = df.map(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
                 return df
 
             # Calculate step size
-            step_size = get_step_size(last_price)
+            step_size = get_step_size(last_asset_price)
 
             # Create price tiers
             price_tiers = np.arange(
-                np.floor(price_min / step_size) * step_size,
-                np.ceil(price_max / step_size) * step_size + step_size,
+                np.floor(price_min_filter / step_size) * step_size,
+                np.ceil(price_max_filter / step_size) * step_size + step_size,
                 step_size
             )
 
@@ -456,17 +457,14 @@ elif navigation == "Price Simulation":
                     probs_above = (horizon_prices.values[:, None] > price_tiers).mean(axis=0)  # For tiers above last price
                     probs_below = (horizon_prices.values[:, None] < price_tiers).mean(axis=0)  # For tiers below last price
                     
-                    probabilities = np.where(price_tiers > last_price, probs_above, probs_below)
+                    probabilities = np.where(price_tiers > last_asset_price, probs_above, probs_below)
                     probability_table[column_name] = probabilities
 
-            #print(probability_table)
             # Format the table based on price tier scale
             formatted_table = format_for_streamlit(probability_table * 100, price_tiers)
-            #print(formatted_table)
 
-            st.write(f"Probability (%) Table for {asset} (Price Ranges -50% to 200% from Last Price for Multiple Horizons):")
+            st.write(f"Probability (%) Table for {asset} (Filtered by Price Range for Multiple Horizons):")
             st.table(formatted_table)
-
 
             # Plot the selected scenarios
             fig = go.Figure()
@@ -493,5 +491,11 @@ elif navigation == "Price Simulation":
 
             # Display the chart in Streamlit
             st.plotly_chart(fig)
+
+
+
+
+
+
 
 
