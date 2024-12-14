@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import pytz
 from config import *
 from pandas.tseries.offsets import DateOffset
+import math
 
 # Directory to save crypto data files
 data_dir = "crypto_data"
@@ -238,104 +239,106 @@ if navigation == "Crypto Alert Signal":
         step=1000, 
         key="total_portfolio_input"
     )
-    if "updated_data" not in st.session_state: 
-        if os.path.exists(param_result_file):
-            crypto_data = fetch_update_data()
-            comparison_df = pd.read_csv(param_result_file, index_col=0)
-            if crypto_data is not None:
-                accuracy_results = []
-                best_df = comparison_df.copy()
+    start_update=st.button("Start Data Update")
+    if start_update:
+        if "updated_data" not in st.session_state: 
+            if os.path.exists(param_result_file):
+                crypto_data = fetch_update_data()
+                comparison_df = pd.read_csv(param_result_file, index_col=0)
+                if crypto_data is not None:
+                    accuracy_results = []
+                    best_df = comparison_df.copy()
 
-                # Iterate through symbols and calculate results
-                for symbol, df in crypto_data.items():
-                    best_accuracy_row = best_df[best_df['Symbol'] == symbol]
-                    if best_accuracy_row.empty:
-                        continue
+                    # Iterate through symbols and calculate results
+                    for symbol, df in crypto_data.items():
+                        best_accuracy_row = best_df[best_df['Symbol'] == symbol]
+                        if best_accuracy_row.empty:
+                            continue
 
-                    # Extract parameters safely
-                    best_accuracy_params = {
-                        'x_hours': best_accuracy_row['High_in_x_hours'].values[0],
-                        'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'].values[0],
-                        'holding_period': best_accuracy_row['Holding_Period'].values[0],
-                        'TP(%)': best_accuracy_row['TP(%)'].values[0],
-                        'SL(%)': best_accuracy_row['SL(%)'].values[0],
-                        'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
-                        'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_no_tp_sl'].values[0],
-                        'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_no_tp_sl'].values[0],
-                        'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_with_tp_sl'].values[0],
-                        'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_with_tp_sl'].values[0],
-                    }
+                        # Extract parameters safely
+                        best_accuracy_params = {
+                            'x_hours': best_accuracy_row['High_in_x_hours'].values[0],
+                            'volume_increase_pct': best_accuracy_row['Volume_Increase_Pct'].values[0],
+                            'holding_period': best_accuracy_row['Holding_Period'].values[0],
+                            'TP(%)': best_accuracy_row['TP(%)'].values[0],
+                            'SL(%)': best_accuracy_row['SL(%)'].values[0],
+                            'Num_Signals': best_accuracy_row['Num_Signals'].values[0],
+                            'Total_Return_No_TP_SL': best_accuracy_row['Total_Return_no_tp_sl'].values[0],
+                            'Accuracy_No_TP_SL': best_accuracy_row['Accuracy_no_tp_sl'].values[0],
+                            'Total_Return_With_TP_SL': best_accuracy_row['Total_Return_with_tp_sl'].values[0],
+                            'Accuracy_With_TP_SL': best_accuracy_row['Accuracy_with_tp_sl'].values[0],
+                        }
 
-                    # Ensure Num_Signals is valid
-                    num_signals = best_accuracy_params['Num_Signals']
-                    if num_signals == 0 or pd.isna(num_signals):
-                        avg_total_return_no_tp_sl = None
-                        avg_total_return_with_tp_sl = None
-                    else:
-                        avg_total_return_no_tp_sl = (
-                            best_accuracy_params['Total_Return_No_TP_SL'] / num_signals
+                        # Ensure Num_Signals is valid
+                        num_signals = best_accuracy_params['Num_Signals']
+                        if num_signals == 0 or pd.isna(num_signals):
+                            avg_total_return_no_tp_sl = None
+                            avg_total_return_with_tp_sl = None
+                        else:
+                            avg_total_return_no_tp_sl = (
+                                best_accuracy_params['Total_Return_No_TP_SL'] / num_signals
+                            )
+                            avg_total_return_with_tp_sl = (
+                                best_accuracy_params['Total_Return_With_TP_SL'] / num_signals
+                            )
+
+                        # Find last trigger date and price
+                        last_trigger_date, last_trigger_price = find_last_trigger_date_and_price(
+                            df.copy(),
+                            best_accuracy_params['x_hours'],
+                            best_accuracy_params['volume_increase_pct'],
+                            best_accuracy_params['holding_period'],
                         )
-                        avg_total_return_with_tp_sl = (
-                            best_accuracy_params['Total_Return_With_TP_SL'] / num_signals
-                        )
 
-                    # Find last trigger date and price
-                    last_trigger_date, last_trigger_price = find_last_trigger_date_and_price(
-                        df.copy(),
-                        best_accuracy_params['x_hours'],
-                        best_accuracy_params['volume_increase_pct'],
-                        best_accuracy_params['holding_period'],
-                    )
+                        # Append results
+                        accuracy_results.append({
+                            'Symbol': symbol,
+                            'Last_Trigger_Date': last_trigger_date,
+                            'Price(THB)': last_trigger_price*usd_to_thb_rate,
+                            'Price(USD)': last_trigger_price,
+                            'High_in_x_hours': best_accuracy_params['x_hours'],
+                            'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
+                            'Holding_hours': best_accuracy_params['holding_period'],
+                            'TP(%)': best_accuracy_params['TP(%)'],
+                            'SL(%)': best_accuracy_params['SL(%)'],
+                            'Num_Signals': num_signals,
+                            'AVG_Return_No_TP_SL': avg_total_return_no_tp_sl,
+                            'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
+                            'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
+                            'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
+                            'Weight':best_accuracy_row['Weight'].values[0]
+                        })
 
-                    # Append results
-                    accuracy_results.append({
-                        'Symbol': symbol,
-                        'Last_Trigger_Date': last_trigger_date,
-                        'Price(THB)': last_trigger_price*usd_to_thb_rate,
-                        'Price(USD)': last_trigger_price,
-                        'High_in_x_hours': best_accuracy_params['x_hours'],
-                        'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
-                        'Holding_hours': best_accuracy_params['holding_period'],
-                        'TP(%)': best_accuracy_params['TP(%)'],
-                        'SL(%)': best_accuracy_params['SL(%)'],
-                        'Num_Signals': num_signals,
-                        'AVG_Return_No_TP_SL': avg_total_return_no_tp_sl,
-                        'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
-                        'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
-                        'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
-                        'Weight':best_accuracy_row['Weight'].values[0]
-                    })
+                    # Create DataFrame
+                    accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
 
-                # Create DataFrame
-                accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
+                    current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
 
-                current_hour = datetime.now(pytz.timezone('Asia/Bangkok'))
+                    # For Accuracy DataFrame
+                    accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
+                    # Reorder columns
 
-                # For Accuracy DataFrame
-                accuracy_df['Sell'] = (accuracy_df['Last_Trigger_Date'] + pd.to_timedelta(accuracy_df['Holding_hours'], unit='h')) < current_hour
-                # Reorder columns
+                st.session_state.accuracy_df=accuracy_df
+            else:
+                st.warning("Strategy results file not found.")
+        
+        desired_columns = [
+        'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','Amount_in_Baht','Amount_in_USD','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
+        'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
+        'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
+        'Num_Signals'
+        ]
+        st.session_state.accuracy_df['Amount_in_Baht'] = st.session_state.accuracy_df['Weight'] * st.session_state.total_portfolio 
+        st.session_state.accuracy_df['Amount_in_USD'] = st.session_state.accuracy_df['Amount_in_Baht'] / usd_to_thb_rate
+        st.session_state.accuracy_df = st.session_state.accuracy_df[desired_columns].round(4)
 
-            st.session_state.accuracy_df=accuracy_df
-        else:
-            st.warning("Strategy results file not found.")
-    
-    desired_columns = [
-    'Last_Trigger_Date', 'Holding_hours','Price(THB)','Price(USD)','Weight','Amount_in_Baht','Amount_in_USD','TP(%)','SL(%)', 'Sell', 'AVG_Return_No_TP_SL', 
-    'Accuracy_No_TP_SL','AVG_Return_With_TP_SL', 
-    'Accuracy_With_TP_SL' ,'High_in_x_hours', 'Volume_Increase_Pct', 
-    'Num_Signals'
-    ]
-    st.session_state.accuracy_df['Amount_in_Baht'] = st.session_state.accuracy_df['Weight'] * st.session_state.total_portfolio 
-    st.session_state.accuracy_df['Amount_in_USD'] = st.session_state.accuracy_df['Amount_in_Baht'] / usd_to_thb_rate
-    st.session_state.accuracy_df = st.session_state.accuracy_df[desired_columns].round(4)
-
-    #st.text("Start Port Value:",st.session_state.total_portfolio,"Baht")
-    st.write(f"Start Port Value: {st.session_state.total_portfolio} baht")
-    # Display the tables
-    st.subheader(f"Buy Order")
-    st.dataframe(st.session_state.accuracy_df[st.session_state.accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
-    st.subheader(f"Sell Order")
-    st.dataframe(st.session_state.accuracy_df[st.session_state.accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False))
+        #st.text("Start Port Value:",st.session_state.total_portfolio,"Baht")
+        st.write(f"Start Port Value: {st.session_state.total_portfolio} baht")
+        # Display the tables
+        st.subheader(f"Buy Order")
+        st.dataframe(st.session_state.accuracy_df[st.session_state.accuracy_df['Sell']==False].sort_values(['Last_Trigger_Date','Accuracy_No_TP_SL'],ascending=False))
+        st.subheader(f"Sell Order")
+        st.dataframe(st.session_state.accuracy_df[st.session_state.accuracy_df['Sell']==True].sort_values('Last_Trigger_Date',ascending=False))
 
 # Navigation: Price Simulation
 elif navigation == "Price Simulation":
@@ -343,7 +346,7 @@ elif navigation == "Price Simulation":
 
     asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
     num_scenarios = st.slider("Number of Scenarios:", 100, 5000, 1000)
-    steps = st.slider("Simulation Days:", 30, 365, 365)
+    steps = st.slider("Simulation Days:", 90, 1460, 365)
 
     if st.button("Generate Price Simulation"):
         end_date = pd.Timestamp.now().strftime('%Y-%m-%d')
@@ -376,98 +379,110 @@ elif navigation == "Price Simulation":
                 start_date=end_date
             )
 
-            # Get the last row from simulated_vg_pct
-            last_row = simulated_vg_pct.iloc[-1]
+            # Calculate cumulative product for each scenario
+            simulated_prices = (1 + simulated_vg_pct).cumprod() * price_df.Close.iloc[-1]
 
-            # Find the median value
-            last_value_50_index = last_row.median()
+            # Get the last row of simulated prices
+            last_prices = simulated_prices.iloc[-1]
 
-            # Find the index of the value closest to the median
-            that_idx = (last_row - last_value_50_index).abs().idxmin()
+            # Define 10th percentiles
+            percentiles = [0.1 * i for i in range(1, 10)]
 
-            # Calculate the 50% price percentile using the index
-            price_50 = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct[that_idx])
-
-            # Calculate Portfolio Growth
-
-            port_growth = price_df['Close'].iloc[-1] * (1 + simulated_vg_pct).dropna().cumprod()
-
-            # Calculate Percentiles
-            cumulative_max = port_growth.cummax()
-            cumulative_min = port_growth.cummin()
-            monthly_cum_max = cumulative_max.resample('ME').last()
-            monthly_cum_min = cumulative_min.resample('ME').last()
-
-            monthly_percentile_extremes = {}
-            for month in monthly_cum_max.index:
-                median_max = monthly_cum_max.loc[month].median()
-                percentile_75_max = monthly_cum_max.loc[month].quantile(0.75)
-                median_min = monthly_cum_min.loc[month].median()
-                percentile_25_min = monthly_cum_min.loc[month].quantile(0.25)
-                monthly_percentile_extremes[month] = {
-                    "50% Prob. Price Up": median_max,
-                    "25% Prob. Price Up": percentile_75_max,
-                    "50% Prob. Price Down": median_min,
-                    "25% Prob. Price Down": percentile_25_min
-                }
-            percentile_extremes_df = pd.DataFrame(monthly_percentile_extremes).T
+            # Find scenarios corresponding to these percentiles
+            selected_scenarios = {}
+            for p in percentiles:
+                percentile_value = last_prices.quantile(p)  # Get the value at the p-th percentile
+                closest_idx = (last_prices - percentile_value).abs().idxmin()  # Find the closest scenario
+                selected_scenarios[f"{int(p * 100)}th Percentile"] = simulated_prices[closest_idx]
 
 
+            # Define time horizons based on the simulation steps
+            max_horizon = steps  # Maximum prediction horizon based on the slider
+            horizon_step = 90    # Define step interval for horizons (e.g., 90 days)
+            time_horizons = list(range(horizon_step, max_horizon + 1, horizon_step))
+
+            # Define price range based on last price
+            last_price = price_df['Close'].iloc[-1]
+            price_min = last_price * 0.5  # -50%
+            price_max = last_price * 2.0  # +200%
+
+            # Define price step size dynamically based on the price magnitude
+
+            def get_step_size(price):
+                if price <= 0:
+                    return 0.01  # Handle edge case where price is 0 or negative
+                magnitude = math.floor(math.log10(price))
+                if magnitude < 0:
+                    return 10 ** magnitude  # For fractional prices, step size is 10^magnitude
+                return 10 ** (magnitude - 1)  # For whole prices, step size is 10^(magnitude-1)
+
+            # Format the probability table for display
+            def format_for_streamlit(df, price_tiers):
+                # Sort the DataFrame by numeric index first
+                df = df.sort_index(ascending=False)
+
+                # Format the price tiers (index) for display
+                formatted_index = df.index.map(lambda x: f"{x:,.4f}" if x < 1 else f"{int(x):,}")
+                df.index = formatted_index  # Replace the index with formatted strings
+
+                # Format the percent values (table values) with 2 decimal places
+                df = df.applymap(lambda x: f"{x:.2f}")
+                return df
+
+            # Calculate step size
+            step_size = get_step_size(last_price)
+
+            # Create price tiers
+            price_tiers = np.arange(
+                np.floor(price_min / step_size) * step_size,
+                np.ceil(price_max / step_size) * step_size + step_size,
+                step_size
+            )
+
+            # Initialize the probability table
+            probability_table = pd.DataFrame(index=price_tiers)
+
+            # Get the last date in the dataset
+            last_date = price_df.index[-1]
+
+            # Calculate probabilities for each time horizon
+            for horizon in time_horizons:
+                if horizon <= simulated_prices.shape[0]:  # Ensure the horizon is within simulation steps
+                    horizon_prices = simulated_prices.iloc[horizon - 1]  # Get prices for the specific horizon
+                    horizon_date = (last_date + pd.Timedelta(days=horizon)).strftime('%Y-%m-%d')  # Calculate horizon date
+                    column_name = f"{horizon_date}"
+                    
+                    # Vectorized probability calculations for price tiers
+                    probs_above = (horizon_prices.values[:, None] > price_tiers).mean(axis=0)  # For tiers above last price
+                    probs_below = (horizon_prices.values[:, None] < price_tiers).mean(axis=0)  # For tiers below last price
+                    
+                    probabilities = np.where(price_tiers > last_price, probs_above, probs_below)
+                    probability_table[column_name] = probabilities
+
+            #print(probability_table)
+            # Format the table based on price tier scale
+            formatted_table = format_for_streamlit(probability_table * 100, price_tiers)
+            #print(formatted_table)
+
+            st.write(f"Probability (%) Table for {asset} (Price Ranges -50% to 200% from Last Price for Multiple Horizons):")
+            st.table(formatted_table)
+
+
+            # Plot the selected scenarios
             fig = go.Figure()
-            # Get the latest date in the dataset
-            latest_date = price_df.index.max()
 
-            # Calculate the date one year ago
-            one_year_ago = latest_date - timedelta(days=720)
-
-            # Filter for data within the last year
-            price_one_year = price_df[price_df.index >= one_year_ago]
-            # Add historical data
-            fig.add_trace(go.Scatter(
-                x=price_one_year.index, 
-                y=price_one_year['Close'], 
-                mode='lines', 
-                name='Historical Price', 
-                line=dict(color='blue')
-            ))
-
-            fig.add_trace(go.Scatter(
-                x=percentile_extremes_df.index, 
-                y=price_50, 
-                mode='lines', 
-                name='Sample Price', 
-                line=dict(color='orange',dash='dash')
-            ))
-
-            # Add percentile lines
-            for col, color, dash in zip(
-                ["50% Prob. Price Up", "25% Prob. Price Up", "50% Prob. Price Down", "25% Prob. Price Down"],
-                ['green', 'lightgreen', 'red', 'lightcoral'],
-                [None, 'dash', None, 'dash']
-            ):
-                if col in percentile_extremes_df.columns:  # Ensure the column exists
-                    fig.add_trace(go.Scatter(
-                        x=percentile_extremes_df.index, 
-                        y=percentile_extremes_df[col], 
-                        mode='lines', 
-                        name=col, 
-                        line=dict(color=color, dash=dash)
-                    ))
-
-            # fig.add_annotation(
-            #     x=simulated_vg_pct.index[-1],  # Position at the end of the x-axis
-            #     y=price_50,  # Position at the 50% price percentile value
-            #     text=f"50% Price Percentile: {price_50:.2f}",
-            #     showarrow=True,
-            #     arrowhead=2,
-            #     ax=50,  # Horizontal offset for arrow
-            #     ay=0,   # Vertical offset for arrow
-            #     font=dict(color="purple")
-            # )
+            # Add selected scenarios to the chart
+            for label, scenario in selected_scenarios.items():
+                fig.add_trace(go.Scatter(
+                    x=scenario.index,
+                    y=scenario,
+                    mode='lines',
+                    name=label
+                ))
 
             # Update layout
             fig.update_layout(
-                title=f"{asset} Price Simulation with Percentiles",
+                title=f"{asset} Price Simulation with Selected Scenarios",
                 xaxis_title="Date",
                 yaxis_title="Price",
                 legend_title="Legend",
@@ -475,6 +490,8 @@ elif navigation == "Price Simulation":
                 height=600,
                 width=1000
             )
+
             # Display the chart in Streamlit
             st.plotly_chart(fig)
+
 
