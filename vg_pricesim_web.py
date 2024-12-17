@@ -343,18 +343,23 @@ if navigation == "Crypto Alert Signal":
 # Navigation: Price Simulation
 elif navigation == "Price Simulation":
     st.subheader("Variance Gamma Price Simulation for Middle Term Trader")
-
+    st.session_state.steps=365
     asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
+    asset_data_duration=st.number_input("Use data period to calcalte Varaince Gamma :",min_value=1,max_value=4,value=4 )
     num_scenarios = st.slider("Number of Scenarios:", 100, 10000, 1000)
-    steps = st.slider("Simulation Days:", 90, 1460, 365)
-
+    steps = st.slider("Simulation Days:", 90, 1460, st.session_state.steps)
+    apply_4_year_cycle = st.checkbox("Apply 4-Year Cycle Filter", value=False)
     st.subheader("Set Filter for Asset Price Ranges")
     price_min_filter = st.number_input("1 year Minimum Price :", value=0.0)
     price_max_filter = st.number_input("1 year Maximum Price :", value=1000000.0)
 
     if st.button("Generate Price Simulation"):
+        if apply_4_year_cycle:
+            steps=1460
+            st.session_state.steps=steps
+
         end_date = pd.Timestamp.now().strftime('%Y-%m-%d')
-        start_date = (pd.Timestamp.now() - pd.DateOffset(years=4)).strftime('%Y-%m-%d')
+        start_date = (pd.Timestamp.now() - pd.DateOffset(years=asset_data_duration)).strftime('%Y-%m-%d')
         price_df = yf.download(asset, start=start_date, end=end_date, progress=False)
         if price_df.empty:
             st.warning(f"No data found for {asset}. Please check if the symbol is valid on Yahoo Finance.")
@@ -389,8 +394,37 @@ elif navigation == "Price Simulation":
             # Filter scenarios based on user input for price range
             valid_scenarios = (yearly_min_prices >= price_min_filter) & (yearly_max_prices <= price_max_filter)
             simulated_prices = simulated_prices.loc[:, valid_scenarios]
-            #print(len(valid_scenarios),simulated_prices.shape)
-            # Get the last row of simulated prices
+            
+            
+
+            if apply_4_year_cycle:
+
+                # Calculate yearly returns
+                yearly_returns = simulated_prices.resample('YE').last().pct_change().dropna()
+                #print(yearly_returns)
+                yearly_returns.index = yearly_returns.index.year  # Use years as index
+
+                # Determine mod-4 values for years
+                mod_4_years = yearly_returns.index % 4
+
+                # Filter for years mod 4 == 0, 1, 3 (positive returns expected)
+                positive_years = yearly_returns.loc[mod_4_years.isin([0, 1, 3])]
+                #print(positive_years)
+                # Find scenarios where all relevant years have positive returns
+                valid_scenarios_positive = positive_years.columns[(positive_years > 0.2).all(axis=0)]
+                #print(valid_scenarios_positive)
+                # Filter for years mod 4 == 2 (negative returns expected)
+                negative_years = yearly_returns.loc[mod_4_years == 2]
+
+                # Find scenarios where all relevant years have negative returns
+                valid_scenarios_negative = negative_years.columns[(negative_years < -0.3).all(axis=0)]
+                #print(valid_scenarios_negative)
+                # Combine valid scenarios from positive and negative filters
+                valid_scenarios = valid_scenarios_positive.intersection(valid_scenarios_negative)
+                #print(valid_scenarios)
+                # Filter the simulated_prices DataFrame
+                simulated_prices = simulated_prices[valid_scenarios]
+            #print(simulated_prices)
             last_prices = simulated_prices.iloc[-1]
 
             # Define 10th percentiles
