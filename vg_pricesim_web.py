@@ -146,7 +146,7 @@ def fetch_update_data(comparison_df):
     for i, row in comparison_df.iterrows():
         filename = row['Symbol'].replace("-", "_")+'.csv'
         file_path = os.path.join(data_dir, filename)
-        status_text.write(f"Processing {row['Symbol']} ({i + 1}/{total_files})...")
+        status_text.write(f"Processing {row['Symbol']} ({i + 1}/{len(comparison_df)})...")
 
         # Update progress bar
         progress_bar.progress((i + 1) / len(comparison_df))
