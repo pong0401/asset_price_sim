@@ -432,100 +432,103 @@ elif navigation == "Price Simulation":
             percentiles = [0.1 * i for i in range(1, 10)]
 
             # Find scenarios corresponding to these percentiles
-            selected_scenarios = {}
-            for p in percentiles:
-                percentile_value = last_prices.quantile(p)  # Get the value at the p-th percentile
-                closest_idx = (last_prices - percentile_value).abs().idxmin()  # Find the closest scenario
-                selected_scenarios[f"{int(p * 100)}th Percentile"] = simulated_prices[closest_idx]
+            if simulated_prices is not None and len(simulated_prices.columns)>0:
+                selected_scenarios = {}
+                for p in percentiles:
+                    percentile_value = last_prices.quantile(p)  # Get the value at the p-th percentile
+                    closest_idx = (last_prices - percentile_value).abs().idxmin()  # Find the closest scenario
+                    selected_scenarios[f"{int(p * 100)}th Percentile"] = simulated_prices[closest_idx]
 
-            # Define time horizons based on the simulation steps
-            max_horizon = steps  # Maximum prediction horizon based on the slider
-            horizon_step = 90    # Define step interval for horizons (e.g., 90 days)
-            time_horizons = list(range(horizon_step, max_horizon + 1, horizon_step))
+                # Define time horizons based on the simulation steps
+                max_horizon = steps  # Maximum prediction horizon based on the slider
+                horizon_step = 90    # Define step interval for horizons (e.g., 90 days)
+                time_horizons = list(range(horizon_step, max_horizon + 1, horizon_step))
 
-            # Define price step size dynamically based on the price magnitude
+                # Define price step size dynamically based on the price magnitude
 
-            def get_step_size(price):
-                if price <= 0:
-                    return 0.01  # Handle edge case where price is 0 or negative
-                magnitude = math.floor(math.log10(price))
-                if magnitude < 0:
-                    return 10 ** magnitude  # For fractional prices, step size is 10^magnitude
-                return 10 ** (magnitude-1)  # For whole prices, step size is 10^(magnitude-1)
+                def get_step_size(price):
+                    if price <= 0:
+                        return 0.01  # Handle edge case where price is 0 or negative
+                    magnitude = math.floor(math.log10(price))
+                    if magnitude < 0:
+                        return 10 ** magnitude  # For fractional prices, step size is 10^magnitude
+                    return 10 ** (magnitude-1)  # For whole prices, step size is 10^(magnitude-1)
 
-            def format_for_streamlit(df, price_tiers):
-                # Sort the DataFrame by numeric index first
-                df = df.sort_index(ascending=False)
+                def format_for_streamlit(df, price_tiers):
+                    # Sort the DataFrame by numeric index first
+                    df = df.sort_index(ascending=False)
 
-                # Format the price tiers (index) for display
-                formatted_index = df.index.map(lambda x: f"{x:,.4f}" if x < 1 else f"{int(x):,}")
-                df.index = formatted_index  # Replace the index with formatted strings
+                    # Format the price tiers (index) for display
+                    formatted_index = df.index.map(lambda x: f"{x:,.4f}" if x < 1 else f"{int(x):,}")
+                    df.index = formatted_index  # Replace the index with formatted strings
 
-                # Format the percent values (table values) with 2 decimal places
-                df = df.map(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
-                return df
+                    # Format the percent values (table values) with 2 decimal places
+                    df = df.map(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
+                    return df
 
-            # Calculate step size
-            step_size = get_step_size(last_asset_price)
+                # Calculate step size
+                step_size = get_step_size(last_asset_price)
 
-            # Create price tiers
-            price_tiers = np.arange(
-                np.floor(price_min_filter / step_size) * step_size,
-                np.ceil(price_max_filter / step_size) * step_size + step_size,
-                step_size
-            )
+                # Create price tiers
+                price_tiers = np.arange(
+                    np.floor(price_min_filter / step_size) * step_size,
+                    np.ceil(price_max_filter / step_size) * step_size + step_size,
+                    step_size
+                )
 
-            # Initialize the probability table
-            probability_table = pd.DataFrame(index=price_tiers)
+                # Initialize the probability table
+                probability_table = pd.DataFrame(index=price_tiers)
 
-            # Get the last date in the dataset
-            last_date = price_df.index[-1]
+                # Get the last date in the dataset
+                last_date = price_df.index[-1]
 
-            # Calculate probabilities for each time horizon
-            for horizon in time_horizons:
-                if horizon <= simulated_prices.shape[0]:  # Ensure the horizon is within simulation steps
-                    horizon_prices = simulated_prices.iloc[horizon - 1]  # Get prices for the specific horizon
-                    horizon_date = (last_date + pd.Timedelta(days=horizon)).strftime('%Y-%m-%d')  # Calculate horizon date
-                    column_name = f"{horizon_date}"
-                    
-                    # Vectorized probability calculations for price tiers
-                    probs_above = (horizon_prices.values[:, None] > price_tiers).mean(axis=0)  # For tiers above last price
-                    probs_below = (horizon_prices.values[:, None] < price_tiers).mean(axis=0)  # For tiers below last price
-                    
-                    probabilities = np.where(price_tiers > last_asset_price, probs_above, probs_below)
-                    probability_table[column_name] = probabilities
+                # Calculate probabilities for each time horizon
+                for horizon in time_horizons:
+                    if horizon <= simulated_prices.shape[0]:  # Ensure the horizon is within simulation steps
+                        horizon_prices = simulated_prices.iloc[horizon - 1]  # Get prices for the specific horizon
+                        horizon_date = (last_date + pd.Timedelta(days=horizon)).strftime('%Y-%m-%d')  # Calculate horizon date
+                        column_name = f"{horizon_date}"
+                        
+                        # Vectorized probability calculations for price tiers
+                        probs_above = (horizon_prices.values[:, None] > price_tiers).mean(axis=0)  # For tiers above last price
+                        probs_below = (horizon_prices.values[:, None] < price_tiers).mean(axis=0)  # For tiers below last price
+                        
+                        probabilities = np.where(price_tiers > last_asset_price, probs_above, probs_below)
+                        probability_table[column_name] = probabilities
 
-            # Format the table based on price tier scale
-            formatted_table = format_for_streamlit(probability_table * 100, price_tiers)
+                # Format the table based on price tier scale
+                formatted_table = format_for_streamlit(probability_table * 100, price_tiers)
 
-            st.write(f"Probability (%) Table for {asset} (Filtered by Price Range for Multiple Horizons):")
-            st.table(formatted_table)
+                st.write(f"Probability (%) Table for {asset} (Filtered by Price Range for Multiple Horizons):")
+                st.table(formatted_table)
 
-            # Plot the selected scenarios
-            fig = go.Figure()
-            st.session_state.selected_scenarios=selected_scenarios
-            # Add selected scenarios to the chart
-            for label, scenario in selected_scenarios.items():
-                fig.add_trace(go.Scatter(
-                    x=scenario.index,
-                    y=scenario,
-                    mode='lines',
-                    name=label
-                ))
+                # Plot the selected scenarios
+                fig = go.Figure()
+                st.session_state.selected_scenarios=selected_scenarios
+                # Add selected scenarios to the chart
+                for label, scenario in selected_scenarios.items():
+                    fig.add_trace(go.Scatter(
+                        x=scenario.index,
+                        y=scenario,
+                        mode='lines',
+                        name=label
+                    ))
 
-            # Update layout
-            fig.update_layout(
-                title=f"{asset} Price Simulation with Selected Scenarios",
-                xaxis_title="Date",
-                yaxis_title="Price",
-                legend_title="Legend",
-                template="plotly_white",
-                height=600,
-                width=1000
-            )
+                # Update layout
+                fig.update_layout(
+                    title=f"{asset} Price Simulation with Selected Scenarios",
+                    xaxis_title="Date",
+                    yaxis_title="Price",
+                    legend_title="Legend",
+                    template="plotly_white",
+                    height=600,
+                    width=1000
+                )
 
-            # Display the chart in Streamlit
-            st.plotly_chart(fig)
+                # Display the chart in Streamlit
+                st.plotly_chart(fig)
+            else:
+                st.warning("No scenario meet filter condition!")
 
 elif navigation == "Reverse DCA":
     st.subheader("Reverse DCA Results")
