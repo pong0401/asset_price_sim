@@ -133,7 +133,7 @@ def update_crypto_data(file_path, ticker):
     return combined_data
 
 
-def fetch_update_data():
+def fetch_update_data(comparison_df):
     
     crypto_data = {}
     file_list = [f for f in os.listdir(data_dir) if f.endswith(".csv")]
@@ -143,17 +143,17 @@ def fetch_update_data():
     progress_bar = st.progress(0)
     status_text = st.empty()
 
-    for i, file_name in enumerate(file_list):
-        ticker = file_name.replace("_", "-").replace(".csv", "")  # Convert file name to ticker
-        file_path = os.path.join(data_dir, file_name)
-        status_text.write(f"Processing {file_name} ({i + 1}/{total_files})...")
+    for i, row in comparison_df.iterrows():
+        filename = row['Symbol'].replace("-", "_")+'.csv'
+        file_path = os.path.join(data_dir, filename)
+        status_text.write(f"Processing {row['Symbol']} ({i + 1}/{total_files})...")
 
         # Update progress bar
-        progress_bar.progress((i + 1) / total_files)
+        progress_bar.progress((i + 1) / len(comparison_df))
 
         # Update crypto data
-        updated_df = update_crypto_data(file_path, ticker)
-        crypto_data[ticker] = updated_df  # Add updated DataFrame to the dictionary
+        updated_df = update_crypto_data(file_path, row['Symbol'])
+        crypto_data[row['Symbol']] = updated_df  # Add updated DataFrame to the dictionary
 
     # Clear the progress and status
     progress_bar.empty()
@@ -243,8 +243,9 @@ if navigation == "Crypto Alert Signal":
     if start_update:
         if "updated_data" not in st.session_state: 
             if os.path.exists(param_result_file):
-                crypto_data = fetch_update_data()
                 comparison_df = pd.read_csv(param_result_file, index_col=0)
+                crypto_data = fetch_update_data(comparison_df)
+                
                 if crypto_data is not None:
                     accuracy_results = []
                     best_df = comparison_df.copy()
