@@ -291,11 +291,10 @@ if navigation == "Crypto Alert Signal":
                             best_accuracy_params['holding_period'],
                         )
 
-                        # Append results
                         accuracy_results.append({
                             'Symbol': symbol,
                             'Last_Trigger_Date': last_trigger_date,
-                            'Price(THB)': last_trigger_price*usd_to_thb_rate,
+                            'Price(THB)': last_trigger_price * usd_to_thb_rate if last_trigger_price is not None else None,
                             'Price(USD)': last_trigger_price,
                             'High_in_x_hours': best_accuracy_params['x_hours'],
                             'Volume_Increase_Pct': best_accuracy_params['volume_increase_pct'],
@@ -307,8 +306,9 @@ if navigation == "Crypto Alert Signal":
                             'Accuracy_No_TP_SL': best_accuracy_params['Accuracy_No_TP_SL'],
                             'AVG_Return_With_TP_SL': avg_total_return_with_tp_sl,
                             'Accuracy_With_TP_SL': best_accuracy_params['Accuracy_With_TP_SL'],
-                            'Weight':best_accuracy_row['Weight'].values[0]
+                            'Weight': best_accuracy_row['Weight'].values[0]
                         })
+
 
                     # Create DataFrame
                     accuracy_df = pd.DataFrame(accuracy_results).set_index('Symbol')
