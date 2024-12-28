@@ -530,58 +530,140 @@ elif navigation == "Price Simulation":
             else:
                 st.warning("No scenario meet filter condition!")
 
+# elif navigation == "Reverse DCA":
+#     st.subheader("Reverse DCA Results")
+#     if "selected_scenarios" not in st.session_state:
+#         st.warning("Please generate Price Simulation first!")
+#     else:
+#         def reverse_dca(selected_scenarios):
+#             reverse_dca_results = {}
+#             num_days = len(next(iter(selected_scenarios.values())))  # All scenarios have the same duration
+#             daily_btc_sale = 1 / num_days  # Amount of BTC sold per day
+
+#             for label, prices in selected_scenarios.items():
+#                 usd_balance = 0
+#                 btc_holdings = 1
+#                 usd_balances = []
+
+#                 # Simulate daily sales
+#                 for price in prices:
+#                     usd_balance += daily_btc_sale * price
+#                     btc_holdings -= daily_btc_sale
+#                     usd_balances.append(usd_balance)
+
+#                 # Store results for the scenario
+#                 reverse_dca_results[label] = pd.Series(usd_balances, index=prices.index)
+
+#             return reverse_dca_results, num_days, daily_btc_sale
+
+#         # Perform Reverse DCA
+#         reverse_dca_results, num_days, daily_btc_sale = reverse_dca(st.session_state.selected_scenarios)
+
+#         # Display Sale Details
+#         st.write("### Reverse DCA Sale Details")
+#         st.write(
+#             f"Selling **{daily_btc_sale:.6f} BTC per day** over **{num_days} days** for all scenarios."
+#         )
+
+#         # Plot Reverse DCA Results
+#         reverse_dca_fig = go.Figure()
+#         for label, usd_balances in reverse_dca_results.items():
+#             reverse_dca_fig.add_trace(go.Scatter(x=usd_balances.index, y=usd_balances.values, mode='lines', name=f"Reverse DCA {label}"))
+
+#         reverse_dca_fig.update_layout(
+#             title="Reverse DCA Results for Selected Scenarios",
+#             xaxis_title="Date",
+#             yaxis_title="USD Balance",
+#             legend_title="Legend",
+#             template="plotly_white",
+#             height=600,
+#             width=1000
+#         )
+#         st.plotly_chart(reverse_dca_fig)
+
+
 elif navigation == "Reverse DCA":
     st.subheader("Reverse DCA Results")
     if "selected_scenarios" not in st.session_state:
         st.warning("Please generate Price Simulation first!")
     else:
-        def reverse_dca(selected_scenarios):
+        def reverse_dca(selected_scenarios, frequency):
             reverse_dca_results = {}
             num_days = len(next(iter(selected_scenarios.values())))  # All scenarios have the same duration
-            daily_btc_sale = 1 / num_days  # Amount of BTC sold per day
+
+            # Determine the interval based on the frequency
+            if frequency == "Daily":
+                interval = 1
+            elif frequency == "Weekly":
+                interval = 7
+            elif frequency == "Monthly":
+                interval = 30  # Approximation for a month
+
+            num_intervals = (num_days + interval - 1) // interval  # Round up intervals
+            btc_sale_per_interval = 1 / num_intervals  # Amount of BTC sold per interval
 
             for label, prices in selected_scenarios.items():
                 usd_balance = 0
                 btc_holdings = 1
                 usd_balances = []
 
-                # Simulate daily sales
-                for price in prices:
-                    usd_balance += daily_btc_sale * price
-                    btc_holdings -= daily_btc_sale
+                # Ensure prices are a Series and index is datetime
+                if isinstance(prices, pd.DataFrame):
+                    if 'price' in prices.columns:  # Replace 'price' with the actual price column name
+                        prices = prices['price']
+                    else:
+                        raise ValueError(f"Prices DataFrame for {label} does not have a 'price' column.")
+
+                # Use the original DatetimeIndex for transaction dates
+                transaction_indices = prices.index[::interval]
+
+                # Simulate sales based on the interval
+                for i in transaction_indices:
+                    if btc_holdings > 0:  # Ensure no overselling
+                        current_price = prices.loc[i]  # Use loc to access by datetime index
+                        usd_balance += btc_sale_per_interval * current_price
+                        btc_holdings -= btc_sale_per_interval
                     usd_balances.append(usd_balance)
 
-                # Store results for the scenario
-                reverse_dca_results[label] = pd.Series(usd_balances, index=prices.index)
+                # Ensure the results align with the transaction indices
+                reverse_dca_results[label] = pd.Series(usd_balances, index=transaction_indices)
 
-            return reverse_dca_results, num_days, daily_btc_sale
+            return reverse_dca_results, num_intervals, btc_sale_per_interval
+
+
+        # Input option for Reverse DCA frequency
+        frequency = st.selectbox("Select Reverse DCA Frequency", ["Daily", "Weekly", "Monthly"], index=0)
 
         # Perform Reverse DCA
-        reverse_dca_results, num_days, daily_btc_sale = reverse_dca(st.session_state.selected_scenarios)
+        reverse_dca_results, num_intervals, btc_sale_per_interval = reverse_dca(st.session_state.selected_scenarios, frequency)
 
         # Display Sale Details
         st.write("### Reverse DCA Sale Details")
         st.write(
-            f"Selling **{daily_btc_sale:.6f} BTC per day** over **{num_days} days** for all scenarios."
+            f"Selling **{btc_sale_per_interval:.6f} BTC per {frequency.lower()}** over **{num_intervals} intervals** for all scenarios."
         )
 
         # Plot Reverse DCA Results
         reverse_dca_fig = go.Figure()
         for label, usd_balances in reverse_dca_results.items():
-            reverse_dca_fig.add_trace(go.Scatter(x=usd_balances.index, y=usd_balances.values, mode='lines', name=f"Reverse DCA {label}"))
+            reverse_dca_fig.add_trace(go.Scatter(
+                x=usd_balances.index,  # Use the correct DatetimeIndex
+                y=usd_balances.values,
+                mode='lines',
+                name=f"Reverse DCA {label}"
+            ))
 
         reverse_dca_fig.update_layout(
-            title="Reverse DCA Results for Selected Scenarios",
+            title=f"Reverse DCA Results ({frequency}) for Selected Scenarios",
             xaxis_title="Date",
             yaxis_title="USD Balance",
             legend_title="Legend",
+            xaxis=dict(type='date'),  # Ensure x-axis is treated as dates
             template="plotly_white",
             height=600,
             width=1000
         )
         st.plotly_chart(reverse_dca_fig)
-
-
 
 
 
