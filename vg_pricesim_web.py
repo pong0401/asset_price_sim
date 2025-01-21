@@ -65,10 +65,15 @@ def gen_vargamma_pct_change(n, c, sigma, theta, nu, time_to_maturity):
 def simulate_vg_scenarios_pct(S0, c_fit, sigma_fit, theta_fit, nu_fit, steps, num_scenarios, start_date):
     dates = [datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=i) for i in range(steps)]
     pct_changes = np.zeros((steps, num_scenarios))
-    for i in range(steps):
+    for i in range(1,steps):
         pct_change = gen_vargamma_pct_change(num_scenarios, c_fit, sigma_fit, theta_fit, nu_fit, time_to_maturity=1)
         pct_changes[i, :] = pct_change
     pct_changes_df = pd.DataFrame(pct_changes, index=dates, columns=[f'Scenario_{i+1}' for i in range(num_scenarios)])
+        # Create an initial row of zeros with the start date
+    #initial_row = pd.DataFrame([[0] * num_scenarios], index=[datetime.strptime(start_date, '%Y-%m-%d')], columns=pct_changes_df.columns)
+    
+    # Concatenate the initial row with the percentage changes DataFrame
+    #pct_changes_df = pd.concat([initial_row, pct_changes_df])
     return pct_changes_df
 # Function to fetch data and save to a file
 
@@ -213,6 +218,128 @@ def find_last_trigger_date_and_price(data, x_days, volume_increase_pct, no_new_o
 
     return last_trigger_date, last_trigger_price 
 
+def reverse_dca(selected_scenarios, frequency, start_date, end_date):
+    reverse_dca_results = {}
+    interval_days = {"Daily": 1, "Weekly": 7, "Monthly": 30}  # Approximate month as 30 days
+    interval = interval_days[frequency]
+
+    for label, prices in selected_scenarios.items():
+        # Filter prices within the specified date range
+        prices = prices.loc[start_date:end_date]
+
+        num_days = len(prices)
+        num_intervals = (num_days + interval - 1) // interval  # Ceiling division
+        btc_sale_per_interval = 1 / num_intervals  # Amount of BTC sold per interval
+
+        usd_balance = 0
+        btc_holdings = 1
+        usd_balances = []
+
+        # Simulate sales based on the interval
+        for i in range(0, num_days, interval):
+            if btc_holdings > 0:  # Ensure no overselling
+                current_price = prices.iloc[i]
+                usd_balance += btc_sale_per_interval * current_price
+                btc_holdings -= btc_sale_per_interval
+            usd_balances.append(usd_balance)
+
+        # Align results with the transaction dates
+        transaction_dates = prices.index[::interval]
+        reverse_dca_results[label] = pd.Series(usd_balances[:len(transaction_dates)], index=transaction_dates)
+
+    return reverse_dca_results, num_intervals, btc_sale_per_interval
+
+# Define the short_selling_strategy function
+def short_selling_strategy(prices, frequency, start_date, end_date):
+    """
+    Simulate a short-selling strategy over a given price series.
+
+    Args:
+        prices (pd.Series): Series of asset prices indexed by date.
+        frequency (str): Frequency of trades ('Daily', 'Weekly', 'Monthly').
+        start_date (datetime.date): Start date of the trading period.
+        end_date (datetime.date): End date of the trading period.
+
+    Returns:
+        pd.DataFrame: DataFrame containing USD balance, BTC holdings, BTC short amounts, short sale prices,
+                      BTC sold per interval, and net portfolio value over time.
+    """
+    # Filter prices within the specified date range
+    prices = prices.loc[start_date:end_date]
+
+    # Determine the interval based on the frequency
+    interval_days = {"Daily": 1, "Weekly": 7, "Monthly": 30}  # Approximate month as 30 days
+    interval = interval_days[frequency]
+
+    # Initialize portfolio parameters
+    initial_btc = 1.0  # Starting with 1 BTC
+    btc_holdings = initial_btc
+    usd_balance = 0.0
+    btc_short_amount = 0.0  # Total amount of BTC currently shorted
+    short_positions = []  # List to track each short position's entry price and amount
+
+    # Determine the number of intervals
+    num_intervals = (len(prices) + interval - 1) // interval  # Ceiling division
+    btc_sale_per_interval = initial_btc / num_intervals  # Amount of BTC sold per interval
+
+    # Lists to store portfolio metrics over time
+    dates = []
+    usd_balances = []
+    btc_holdings_list = []
+    btc_short_amounts = []
+    short_sale_prices = []
+    btc_sold_per_interval = []
+    net_values = []
+    short_profit_losses=[]
+
+    # Iterate over the price series at the specified intervals
+    for current_date in prices.index[::interval]:
+        current_price = prices.loc[current_date]
+
+        if btc_holdings > 0:  # Ensure no overselling
+            # Update portfolio
+            usd_balance += btc_sale_per_interval * current_price
+            btc_holdings -= btc_sale_per_interval
+            btc_short_amount += btc_sale_per_interval
+
+            # Record the short position
+            short_positions.append((btc_sale_per_interval, current_price))
+
+            # Store short sale details
+            short_sale_prices.append(current_price)
+            btc_sold_per_interval.append(btc_sale_per_interval)
+        else:
+            # If no BTC left to sell, append None
+            short_sale_prices.append(None)
+            btc_sold_per_interval.append(0)
+
+        # Calculate profit/loss from short positions
+        short_profit_loss = sum(amount * (entry_price - current_price) for amount, entry_price in short_positions)
+
+        # Calculate net portfolio value
+        net_value = usd_balance + short_profit_loss + btc_holdings * current_price
+
+        # Store metrics
+        dates.append(current_date)
+        usd_balances.append(usd_balance)
+        btc_holdings_list.append(btc_holdings)
+        btc_short_amounts.append(btc_short_amount)
+        net_values.append(net_value)
+        short_profit_losses.append(short_profit_loss)
+
+    # Compile results into a DataFrame
+    portfolio_df = pd.DataFrame({
+        'Date': dates,
+        'USD Balance': usd_balances,
+        'BTC Holdings': btc_holdings_list,
+        'BTC Short Amount': btc_short_amounts,
+        'Short Sale Price': short_sale_prices,
+        'Short PNL' : short_profit_losses,
+        'BTC Sold per Interval': btc_sold_per_interval,
+        'Net Portfolio Value': net_values
+    }).set_index('Date')
+
+    return portfolio_df
 
 
 # Streamlit App Layout with Navigation
@@ -220,7 +347,7 @@ st.title("Crypto Strategy Performance and Price Simulation")
 st.text("Analyze crypto strategies")
 
 # Sidebar Navigation
-navigation = st.sidebar.radio("Select Page", ["Crypto Alert Signal", "Price Simulation","Reverse DCA"])
+navigation = st.sidebar.radio("Select Page", ["Crypto Alert Signal", "Price Simulation","Reverse DCA","Snow Ball Short Sell"])
 
 # Current USD/THB Exchange Rate
 usd_to_thb_rate = current_USDTHB()
@@ -347,7 +474,7 @@ elif navigation == "Price Simulation":
     st.session_state.steps=365
     asset = st.text_input("Enter Ticker Symbol (e.g., BTC-USD):", "BTC-USD")
     asset_data_duration=st.number_input("Use data period to calcalte Varaince Gamma :",min_value=1,max_value=4,value=4 )
-    num_scenarios = st.slider("Number of Scenarios:", 100, 10000, 1000)
+    num_scenarios = st.slider("Number of Scenarios:", 100, 50000, 1000)
     steps = st.slider("Simulation Days:", 90, 1460, st.session_state.steps)
     apply_4_year_cycle = st.checkbox("Apply 4-Year Cycle Filter", value=False)
     st.subheader("Set Filter for Asset Price Ranges")
@@ -369,7 +496,7 @@ elif navigation == "Price Simulation":
             log_returns = log_return_df.dropna().values.reshape(-1)
 
             (c_fit, sigma_fit, theta_fit, nu_fit) = fit_ml(log_returns, maxiter=1000)
-
+            st.session_state.current_price=price_df['Close'].iloc[-1].values[0]
             simulated_vg_pct = simulate_vg_scenarios_pct(
                 S0=price_df['Close'].iloc[-1],
                 c_fit=c_fit,
@@ -399,12 +526,12 @@ elif navigation == "Price Simulation":
             
 
             if apply_4_year_cycle:
-
+                #print(simulated_prices)
                 # Calculate yearly returns
                 yearly_returns = simulated_prices.resample('YE').last().pct_change().dropna()
-                #print(yearly_returns)
+                
                 yearly_returns.index = yearly_returns.index.year  # Use years as index
-
+                #print(yearly_returns)
                 # Determine mod-4 values for years
                 mod_4_years = yearly_returns.index % 4
 
@@ -429,7 +556,7 @@ elif navigation == "Price Simulation":
             last_prices = simulated_prices.iloc[-1]
 
             # Define 10th percentiles
-            percentiles = [0.1 * i for i in range(1, 10)]
+            percentiles = [0.1 * i for i in range(1, 11)]
 
             # Find scenarios corresponding to these percentiles
             if simulated_prices is not None and len(simulated_prices.columns)>0:
@@ -530,56 +657,7 @@ elif navigation == "Price Simulation":
             else:
                 st.warning("No scenario meet filter condition!")
 
-# elif navigation == "Reverse DCA":
-#     st.subheader("Reverse DCA Results")
-#     if "selected_scenarios" not in st.session_state:
-#         st.warning("Please generate Price Simulation first!")
-#     else:
-#         def reverse_dca(selected_scenarios):
-#             reverse_dca_results = {}
-#             num_days = len(next(iter(selected_scenarios.values())))  # All scenarios have the same duration
-#             daily_btc_sale = 1 / num_days  # Amount of BTC sold per day
 
-#             for label, prices in selected_scenarios.items():
-#                 usd_balance = 0
-#                 btc_holdings = 1
-#                 usd_balances = []
-
-#                 # Simulate daily sales
-#                 for price in prices:
-#                     usd_balance += daily_btc_sale * price
-#                     btc_holdings -= daily_btc_sale
-#                     usd_balances.append(usd_balance)
-
-#                 # Store results for the scenario
-#                 reverse_dca_results[label] = pd.Series(usd_balances, index=prices.index)
-
-#             return reverse_dca_results, num_days, daily_btc_sale
-
-#         # Perform Reverse DCA
-#         reverse_dca_results, num_days, daily_btc_sale = reverse_dca(st.session_state.selected_scenarios)
-
-#         # Display Sale Details
-#         st.write("### Reverse DCA Sale Details")
-#         st.write(
-#             f"Selling **{daily_btc_sale:.6f} BTC per day** over **{num_days} days** for all scenarios."
-#         )
-
-#         # Plot Reverse DCA Results
-#         reverse_dca_fig = go.Figure()
-#         for label, usd_balances in reverse_dca_results.items():
-#             reverse_dca_fig.add_trace(go.Scatter(x=usd_balances.index, y=usd_balances.values, mode='lines', name=f"Reverse DCA {label}"))
-
-#         reverse_dca_fig.update_layout(
-#             title="Reverse DCA Results for Selected Scenarios",
-#             xaxis_title="Date",
-#             yaxis_title="USD Balance",
-#             legend_title="Legend",
-#             template="plotly_white",
-#             height=600,
-#             width=1000
-#         )
-#         st.plotly_chart(reverse_dca_fig)
 
 
 elif navigation == "Reverse DCA":
@@ -587,85 +665,200 @@ elif navigation == "Reverse DCA":
     if "selected_scenarios" not in st.session_state:
         st.warning("Please generate Price Simulation first!")
     else:
-        def reverse_dca(selected_scenarios, frequency):
-            reverse_dca_results = {}
-            num_days = len(next(iter(selected_scenarios.values())))  # All scenarios have the same duration
-
-            # Determine the interval based on the frequency
-            if frequency == "Daily":
-                interval = 1
-            elif frequency == "Weekly":
-                interval = 7
-            elif frequency == "Monthly":
-                interval = 30  # Approximation for a month
-
-            num_intervals = (num_days + interval - 1) // interval  # Round up intervals
-            btc_sale_per_interval = 1 / num_intervals  # Amount of BTC sold per interval
-
-            for label, prices in selected_scenarios.items():
-                usd_balance = 0
-                btc_holdings = 1
-                usd_balances = []
-
-                # Ensure prices are a Series and index is datetime
-                if isinstance(prices, pd.DataFrame):
-                    if 'price' in prices.columns:  # Replace 'price' with the actual price column name
-                        prices = prices['price']
-                    else:
-                        raise ValueError(f"Prices DataFrame for {label} does not have a 'price' column.")
-
-                # Use the original DatetimeIndex for transaction dates
-                transaction_indices = prices.index[::interval]
-
-                # Simulate sales based on the interval
-                for i in transaction_indices:
-                    if btc_holdings > 0:  # Ensure no overselling
-                        current_price = prices.loc[i]  # Use loc to access by datetime index
-                        usd_balance += btc_sale_per_interval * current_price
-                        btc_holdings -= btc_sale_per_interval
-                    usd_balances.append(usd_balance)
-
-                # Ensure the results align with the transaction indices
-                reverse_dca_results[label] = pd.Series(usd_balances, index=transaction_indices)
-
-            return reverse_dca_results, num_intervals, btc_sale_per_interval
-
 
         # Input option for Reverse DCA frequency
         frequency = st.selectbox("Select Reverse DCA Frequency", ["Daily", "Weekly", "Monthly"], index=0)
 
-        # Perform Reverse DCA
-        reverse_dca_results, num_intervals, btc_sale_per_interval = reverse_dca(st.session_state.selected_scenarios, frequency)
+        first_scenario = next(iter(st.session_state.selected_scenarios.values()))
+        min_date = first_scenario.index.min().date()
+        max_date = first_scenario.index.max().date()
 
-        # Display Sale Details
-        st.write("### Reverse DCA Sale Details")
-        st.write(
-            f"Selling **{btc_sale_per_interval:.6f} BTC per {frequency.lower()}** over **{num_intervals} intervals** for all scenarios."
-        )
+        if 'start_date' not in st.session_state:
+            st.session_state.start_date = datetime.now().date()
+        if 'end_date' not in st.session_state:
+            st.session_state.end_date = st.session_state.start_date + timedelta(days=30)
+        # Display date input widgets
+        st.write("### Select Reverse DCA Period")
+        start_date = st.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date)
+        end_date = st.date_input("End Date", value=max_date, min_value=min_date, max_value=max_date)
 
-        # Plot Reverse DCA Results
-        reverse_dca_fig = go.Figure()
-        for label, usd_balances in reverse_dca_results.items():
-            reverse_dca_fig.add_trace(go.Scatter(
-                x=usd_balances.index,  # Use the correct DatetimeIndex
-                y=usd_balances.values,
-                mode='lines',
-                name=f"Reverse DCA {label}"
-            ))
+        # Validate date inputs
+        if start_date < end_date:
 
-        reverse_dca_fig.update_layout(
-            title=f"Reverse DCA Results ({frequency}) for Selected Scenarios",
+            if st.button('Generate Chart'):
+                # Perform Reverse DCA
+                reverse_dca_results, num_intervals, btc_sale_per_interval = reverse_dca(
+                    st.session_state.selected_scenarios, frequency, start_date, end_date
+                )
+
+                # Display Sale Details
+                st.write("### Reverse DCA Sale Details")
+                st.write(
+                    f"Selling **{btc_sale_per_interval:.6f} BTC per {frequency.lower()}** over **{num_intervals} intervals** for all scenarios."
+                )
+
+                # Plot Reverse DCA Results
+                reverse_dca_fig = go.Figure()
+                for label, usd_balances in reverse_dca_results.items():
+                    reverse_dca_fig.add_trace(go.Scatter(
+                        x=usd_balances.index,
+                        y=usd_balances.values,
+                        mode='lines',
+                        name=f"Reverse DCA {label}"
+                    ))
+
+                reverse_dca_fig.update_layout(
+                    title=f"Reverse DCA Results ({frequency}) for Selected Scenarios",
+                    xaxis_title="Date",
+                    yaxis_title="USD Balance",
+                    legend_title="Legend",
+                    xaxis=dict(type='date'),
+                    template="plotly_white",
+                    height=600,
+                    width=1000
+                )
+                st.plotly_chart(reverse_dca_fig)
+        else:
+            st.error("Error: End Date must be after Start Date.")
+
+
+elif navigation == "Snow Ball Short Sell":
+    
+    st.subheader("Snow Ball Short Sell Results(start with Holding 1BTC)")
+
+    if "selected_scenarios" not in st.session_state:
+        st.warning("Please generate Price Simulation first!")
+    else:
+        # Retrieve available scenarios
+        scenario_names = list(st.session_state.selected_scenarios.keys())
+
+        # Dropdown menu for scenario selection
+        selected_scenario_name = st.selectbox("Select Scenario", scenario_names)
+
+        # Retrieve the selected scenario's price data
+        selected_prices = st.session_state.selected_scenarios[selected_scenario_name]
+
+        # Display the selected scenario's price path
+        st.write(f"### Price Path for {selected_scenario_name}")
+        fig_price = go.Figure()
+        fig_price.add_trace(go.Scatter(
+            x=selected_prices.index,
+            y=selected_prices.values,
+            mode='lines',
+            name='Price Path'
+        ))
+        fig_price.update_layout(
+            title=f"Price Path for {selected_scenario_name}",
             xaxis_title="Date",
-            yaxis_title="USD Balance",
-            legend_title="Legend",
-            xaxis=dict(type='date'),  # Ensure x-axis is treated as dates
-            template="plotly_white",
-            height=600,
-            width=1000
+            yaxis_title="Price (USD)",
+            template="plotly_white"
         )
-        st.plotly_chart(reverse_dca_fig)
+        st.plotly_chart(fig_price, use_container_width=True)
 
+        # Input option for short selling frequency
+        frequency = st.selectbox("Select Short Selling Frequency", ["Daily", "Weekly", "Monthly"], index=0)
 
+        # Determine the date range of the selected scenario
+        min_date = selected_prices.index.min().date()
+        max_date = selected_prices.index.max().date()
 
+        # Initialize start and end dates in session state if not already present
+        if 'start_date' not in st.session_state:
+            st.session_state.start_date = min_date
+        if 'end_date' not in st.session_state:
+            st.session_state.end_date = min_date + timedelta(days=360)
+
+        # Display date input widgets
+        st.write("### Select Short Selling Period")
+        start_date = st.date_input("Start Date", value=st.session_state.start_date, min_value=min_date, max_value=max_date)
+        end_date = st.date_input("End Date", value=st.session_state.end_date, min_value=min_date, max_value=max_date)
+
+        # Validate date inputs
+        if start_date < end_date:
+            # Update session state with selected dates
+            st.session_state.start_date = start_date
+            st.session_state.end_date = end_date
+
+            if st.button('Generate Portfolio Growth Chart'):
+                # Perform short selling strategy for the selected scenario
+                                # Calculate probability of profit across all scenarios
+                # Calculate final net portfolio values for all scenarios
+                final_values = {}
+                initial_values = {}
+                for scenario_name in scenario_names:
+                    scenario_prices = st.session_state.selected_scenarios[scenario_name]
+                    scenario_portfolio_df = short_selling_strategy(
+                        scenario_prices, frequency, start_date, end_date
+                    )
+                    final_net_value = scenario_portfolio_df['Net Portfolio Value'].iloc[-1]
+                    #print(st.session_state.current_price)
+                    if st.session_state.current_price is not None:
+                        initial_net_value = st.session_state.current_price #scenario_portfolio_df['Net Portfolio Value'].iloc[0]
+                    else : 
+                        initial_net_value = scenario_portfolio_df['Net Portfolio Value'].iloc[0]
+                    final_values[scenario_name] = final_net_value
+                    initial_values[scenario_name] = initial_net_value
+                    #print(scenario_name,final_net_value,initial_net_value)
+
+                # Display final net portfolio values
+                st.write("### Final Net Portfolio Values for All Scenarios")
+                final_values_df = pd.DataFrame.from_dict(initial_values, orient='index', columns=['Init_invest'])
+                final_values_df['Final_Port']=final_values
+                final_values_df['Return(%)']=(final_values_df['Final_Port']-final_values_df['Init_invest'])/final_values_df['Init_invest']*100
+                #final_values_df['Init_invest']=initial_values
+                st.dataframe(final_values_df)
+                #print(initial_values,final_values)
+                # Calculate probability of profit
+                profitable_count = sum(1 for scenario in final_values if final_values[scenario] > initial_values[scenario])
+                total_scenarios = len(scenario_names)
+                profit_probability = (profitable_count / total_scenarios) * 100
+                profit_mean_return = final_values_df['Return(%)'].mean()
+
+                # Display probability of profit
+                st.write(f"Probability of Profit Across All Scenarios: {profit_probability:.2f}%")
+                st.write(f"Mean reutern of Profit All Scenarios: {profit_mean_return:.2f}%")
+
+                portfolio_df = short_selling_strategy(
+                    selected_prices, frequency, start_date, end_date
+                )
+
+                # Plot Portfolio Growth
+                st.write(f"### Portfolio Growth for {selected_scenario_name}")
+                fig_portfolio = go.Figure()
+                fig_portfolio.add_trace(go.Scatter(
+                    x=portfolio_df.index,
+                    y=portfolio_df['Net Portfolio Value'],
+                    mode='lines',
+                    name='Portfolio Value'
+                ))
+                fig_portfolio.update_layout(
+                    title=f"Portfolio Growth with {frequency} Short Selling",
+                    xaxis_title="Date",
+                    yaxis_title="Portfolio Value (USD)",
+                    template="plotly_white"
+                )
+                st.plotly_chart(fig_portfolio, use_container_width=True)
+
+                # Plot Remaining BTC Holdings
+                st.write(f"### Remaining BTC Holdings for {selected_scenario_name}")
+                fig_btc = go.Figure()
+                fig_btc.add_trace(go.Scatter(
+                    x=portfolio_df.index,
+                    y=portfolio_df['BTC Holdings'],
+                    mode='lines',
+                    name='BTC Holdings'
+                ))
+                fig_btc.update_layout(
+                    title=f"Remaining BTC Holdings with {frequency} Short Selling",
+                    xaxis_title="Date",
+                    yaxis_title="BTC Holdings",
+                    template="plotly_white"
+                )
+                st.plotly_chart(fig_btc, use_container_width=True)
+
+                st.write("### Portfolio DataFrame")
+                st.dataframe(portfolio_df, use_container_width=True)
+        else:
+            st.error("Error: End Date must be after Start Date.")
 
 
