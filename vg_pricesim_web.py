@@ -117,15 +117,16 @@ def update_crypto_data(file_path, ticker):
         end_period = '1mo'
 
     # Fetch updated data
-    updated_data = yf.Ticker(ticker).history(period=end_period, interval="1h")
+    updated_data = yf.download(ticker, period="5d", interval="1h", auto_adjust=False)
     if updated_data.empty:
         print(f"No new data found for {ticker}.")
         return data
 
-    updated_data = updated_data.rename_axis("timestamp").reset_index()
-    updated_data = updated_data[["timestamp", "Open", "High", "Low", "Close", "Volume"]]
-    updated_data["timestamp"] = pd.to_datetime(updated_data["timestamp"])
-    updated_data.set_index("timestamp", inplace=True)
+    #updated_data = updated_data.rename_axis("timestamp").reset_index()
+    updated_data = updated_data[["Open", "High", "Low", "Close", "Volume"]]
+    updated_data.columns = updated_data.columns.get_level_values(0)
+    #updated_data["timestamp"] = pd.to_datetime(updated_data["timestamp"])
+    #updated_data.set_index("timestamp", inplace=True)
 
     # Combine old and new data, replace duplicates with new data
     combined_data = pd.concat([data, updated_data]).sort_index()
