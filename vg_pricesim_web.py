@@ -90,7 +90,7 @@ def update_crypto_data(file_path, ticker):
     """
     # Load existing data
     if os.path.exists(file_path):
-        data = pd.read_csv(file_path, parse_dates=["timestamp"], index_col="timestamp")
+        data = pd.read_csv("crypto_data/BTC_USD.csv", index_col=0, parse_dates=True)
     else:
         data = pd.DataFrame()
 
@@ -112,12 +112,12 @@ def update_crypto_data(file_path, ticker):
         # else:
         #     return data  # No update needed
         #No need to check cause data is not complete , need to re update
-        end_period = '5d'
+        end_period = '7d'
     else:
         end_period = '1mo'
 
     # Fetch updated data
-    updated_data = yf.download(ticker, period="5d", interval="1h", auto_adjust=False)
+    updated_data = yf.download(ticker, period=end_period, interval="1h", auto_adjust=False)
     if updated_data.empty:
         print(f"No new data found for {ticker}.")
         return data
